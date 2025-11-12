@@ -161,8 +161,11 @@ def open_browser():
     webbrowser.open('http://127.0.0.1:5000')
 
 if __name__ == '__main__':
-    # Open browser in a separate thread
-    threading.Thread(target=open_browser, daemon=True).start()
+    # Only open browser if not in reloader subprocess (prevents double opening in debug mode)
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        # Open browser in a separate thread
+        threading.Thread(target=open_browser, daemon=True).start()
+    
     print("\n" + "="*50)
     print("QR File Share Server Starting...")
     print("="*50)
