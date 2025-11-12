@@ -242,10 +242,6 @@ h1 {
 .file-item .file-info {
     flex: 1;
     min-width: 0; /* Allows text to wrap */
-}
-
-.file-item .file-info {
-    flex: 1;
     text-align: left;
 }
 
