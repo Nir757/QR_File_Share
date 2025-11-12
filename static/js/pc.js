@@ -271,18 +271,28 @@ function updateDownloadAllButton() {
 window.acceptFile = acceptFile;
 window.rejectFile = rejectFile;
 
-// Download all pending files
-document.addEventListener('DOMContentLoaded', () => {
+// Setup download all button handler
+function setupDownloadAllButton() {
     const downloadAllBtn = document.getElementById('download-all-btn');
     if (downloadAllBtn) {
-        downloadAllBtn.addEventListener('click', () => {
+        // Remove existing listeners and add new one
+        const newBtn = downloadAllBtn.cloneNode(true);
+        downloadAllBtn.parentNode.replaceChild(newBtn, downloadAllBtn);
+        newBtn.addEventListener('click', () => {
             const pendingFiles = receivedFiles.filter(f => !f.downloaded);
             pendingFiles.forEach(file => {
                 acceptFile(file.id.toString());
             });
         });
     }
-});
+}
+
+// Setup when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupDownloadAllButton);
+} else {
+    setupDownloadAllButton();
+}
 
 function downloadFile(file) {
     const blob = new Blob([base64ToArrayBuffer(file.data)], { type: file.type });
