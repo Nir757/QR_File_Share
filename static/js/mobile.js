@@ -3,6 +3,7 @@ let sessionId = null;
 let peerConnection = null;
 let dataChannel = null;
 let qrScanner = null;
+let isProcessingQRCode = false; // Prevent multiple QR code processing
 let receivedFiles = [];
 let fileQueue = [];
 let isSendingFile = false;
@@ -163,6 +164,12 @@ function startScanner() {
         qrScanner = new QrScanner(
             video,
             result => {
+                // Prevent processing if already handling a QR code
+                if (isProcessingQRCode) {
+                    console.log('Already processing QR code, ignoring duplicate scan');
+                    return;
+                }
+                
                 console.log('QR Scanner callback triggered!');
                 console.log('Result:', result);
                 console.log('Result type:', typeof result);
@@ -176,14 +183,20 @@ function startScanner() {
                 }
                 
                 console.log('Processed scan result:', scanResult);
+                
+                // Mark as processing
+                isProcessingQRCode = true;
+                
+                // Process the QR code
                 handleQRCode(scanResult);
             },
             {
-                // Try simpler config first
+                // Scanner configuration
                 highlightScanRegion: true,
-                maxScansPerSecond: 10,
+                highlightCodeOutline: true,
+                maxScansPerSecond: 5, // Reduce scan rate to prevent duplicates
                 preferredCamera: 'environment', // Use back camera on mobile
-                returnDetailedScanResult: false // Try false first - simpler
+                returnDetailedScanResult: false // Simple string result
             }
         );
         
@@ -263,6 +276,7 @@ function handleQRCode(result) {
     
     if (!url) {
         console.error('No URL found in QR code result. Full result:', result);
+        isProcessingQRCode = false; // Reset flag
         alert('Could not read QR code. Please try scanning again.\n\nDebug info: ' + JSON.stringify(result).substring(0, 100));
         return;
     }
@@ -286,14 +300,27 @@ function handleQRCode(result) {
                 if (statusText) {
                     statusText.textContent = '✓ QR Code detected! Connecting...';
                     statusText.style.color = '#4caf50';
+                } else {
+                    // Create status if it doesn't exist
+                    const status = document.createElement('p');
+                    status.className = 'scan-status';
+                    status.style.color = '#4caf50';
+                    status.style.marginTop = '10px';
+                    status.style.fontWeight = '600';
+                    status.textContent = '✓ QR Code detected! Connecting...';
+                    scannerView.appendChild(status);
                 }
             }
             
-            // Stop scanner
+            // Stop scanner immediately
             if (qrScanner) {
-                qrScanner.stop().catch(err => console.error('Error stopping scanner:', err));
-                qrScanner.destroy();
-                qrScanner = null;
+                try {
+                    qrScanner.stop().catch(err => console.error('Error stopping scanner:', err));
+                    qrScanner.destroy();
+                    qrScanner = null;
+                } catch (err) {
+                    console.error('Error destroying scanner:', err);
+                }
             }
             
             // Small delay to show feedback, then navigate
@@ -302,10 +329,12 @@ function handleQRCode(result) {
             }, 500);
         } else {
             console.warn('QR code URL does not contain session ID');
+            isProcessingQRCode = false; // Reset flag
             alert('Invalid QR code. Please scan the QR code from your computer.\n\nURL: ' + url);
         }
     } catch (error) {
         console.error('Error parsing QR code URL:', error, 'URL:', url);
+        isProcessingQRCode = false; // Reset flag
         alert('Invalid QR code format. Please scan again.\n\nError: ' + error.message + '\nURL: ' + url);
     }
 }
