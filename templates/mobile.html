@@ -32,8 +32,12 @@
                 
                 <div class="file-section">
                     <h3>Send Files</h3>
-                    <input type="file" id="file-input" multiple accept="*/*">
-                    <button id="send-btn" class="btn-primary">Select & Send Files</button>
+                    <div class="file-upload-area" id="file-upload-area">
+                        <input type="file" id="file-input" multiple accept="*/*" style="display: none;">
+                        <div class="upload-icon">📎</div>
+                        <p class="upload-text">Tap to select files</p>
+                        <button id="browse-btn" class="btn-secondary">Choose Files</button>
+                    </div>
                     <div id="file-list" class="file-list"></div>
                 </div>
                 

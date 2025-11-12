@@ -55,6 +55,7 @@ function setupSocketListeners() {
         document.getElementById('qr-container').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
+        setupFileUpload();
     });
     
     socket.on('webrtc_offer', async (data) => {
@@ -214,15 +215,67 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// File sending
-document.getElementById('send-btn').addEventListener('click', () => {
+// File upload area setup
+function setupFileUpload() {
     const fileInput = document.getElementById('file-input');
-    if (fileInput.files.length > 0) {
-        Array.from(fileInput.files).forEach(file => {
-            sendFile(file);
+    const uploadArea = document.getElementById('file-upload-area');
+    const browseBtn = document.getElementById('browse-btn');
+    
+    if (!fileInput || !uploadArea) return;
+    
+    // Click on upload area to trigger file picker
+    uploadArea.addEventListener('click', (e) => {
+        if (e.target !== browseBtn) {
+            fileInput.click();
+        }
+    });
+    
+    // Browse button click
+    if (browseBtn) {
+        browseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.click();
         });
     }
-});
+    
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        const files = e.target.files;
+        if (files.length > 0) {
+            Array.from(files).forEach(file => {
+                sendFile(file);
+            });
+            fileInput.value = ''; // Reset input
+        }
+    });
+    
+    // Drag and drop handlers
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.add('drag-over');
+    });
+    
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('drag-over');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('drag-over');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            Array.from(files).forEach(file => {
+                sendFile(file);
+            });
+        }
+    });
+}
+
 
 async function sendFile(file) {
     if (!dataChannel || dataChannel.readyState !== 'open') {

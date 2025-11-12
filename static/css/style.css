@@ -122,26 +122,83 @@ h1 {
     font-size: 1.2em;
 }
 
-#file-input {
-    width: 100%;
-    padding: 12px;
-    border: 2px dashed #ddd;
-    border-radius: 10px;
-    margin-bottom: 15px;
+/* Modern File Upload Area */
+.file-upload-area {
+    border: 3px dashed #cbd5e0;
+    border-radius: 16px;
+    padding: 40px 20px;
+    text-align: center;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
     cursor: pointer;
-    background: #f9f9f9;
-    font-size: 16px; /* Prevents zoom on iOS */
-    -webkit-tap-highlight-color: transparent;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
 }
 
-#file-input:active {
+.file-upload-area:hover {
     border-color: #667eea;
-    background: #f0f0ff;
+    background: linear-gradient(135deg, #f0f0ff 0%, #e8e9ff 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
 }
 
-#file-input:hover {
+.file-upload-area.drag-over {
     border-color: #667eea;
-    background: #f0f0ff;
+    background: linear-gradient(135deg, #e8e9ff 0%, #d4d7ff 100%);
+    transform: scale(1.02);
+    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.25);
+}
+
+.upload-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+.upload-text {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 8px;
+}
+
+.upload-subtext {
+    font-size: 0.9em;
+    color: #718096;
+    margin: 8px 0 16px 0;
+}
+
+.btn-secondary {
+    background: white;
+    color: #667eea;
+    border: 2px solid #667eea;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.btn-secondary:hover {
+    background: #667eea;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary:active {
+    transform: translateY(0);
+}
+
+#file-input {
+    display: none;
 }
 
 .btn-primary {

@@ -205,11 +205,27 @@ function formatFileSize(bytes) {
 // File sending handlers
 function setupFileInputHandlers() {
     const fileInput = document.getElementById('file-input');
-    const sendBtn = document.getElementById('send-btn');
+    const uploadArea = document.getElementById('file-upload-area');
+    const browseBtn = document.getElementById('browse-btn');
     
-    if (!fileInput || !sendBtn) {
-        console.error('File input or send button not found');
+    if (!fileInput || !uploadArea) {
+        console.error('File input or upload area not found');
         return;
+    }
+    
+    // Click on upload area to trigger file picker
+    uploadArea.addEventListener('click', (e) => {
+        if (e.target !== browseBtn) {
+            fileInput.click();
+        }
+    });
+    
+    // Browse button click
+    if (browseBtn) {
+        browseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.click();
+        });
     }
     
     // Handle file selection - send immediately on mobile
@@ -221,20 +237,6 @@ function setupFileInputHandlers() {
             });
             // Clear the input so the same file can be selected again
             fileInput.value = '';
-        }
-    });
-    
-    // Also handle button click for manual trigger
-    sendBtn.addEventListener('click', () => {
-        const files = fileInput.files;
-        if (files.length > 0) {
-            Array.from(files).forEach(file => {
-                sendFile(file);
-            });
-            fileInput.value = '';
-        } else {
-            // Trigger file picker if no files selected
-            fileInput.click();
         }
     });
 }
