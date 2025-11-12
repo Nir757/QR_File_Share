@@ -1,13 +1,15 @@
 # QR File Share
 
-A web-based file sharing application that allows you to share files between your PC and mobile device by scanning a QR code. No app download required - works entirely in your web browser!
+A web-based file sharing application that allows you to share files between your PC and mobile device by scanning a QR code. **No mobile app download required** - your phone uses the web browser! The PC needs a simple one-time setup.
 
 ## Features
 
-- 🌐 **Web-based**: No app installation needed - works in any modern browser
-- 📱 **Cross-platform**: Works on PC, Android, and iOS devices
+- 📱 **No Mobile App**: Works entirely in your phone's web browser - no app store download needed
+- 💻 **Easy PC Setup**: Simple launcher handles everything automatically (one-time setup)
+- 🔗 **Cross-network**: Share files even when devices are on different networks
 - 🎨 **Modern UI**: Beautiful, responsive interface
 - ⚡ **Fast**: Uses WebRTC for peer-to-peer file transfer
+- ✅ **File Approval**: Choose which files to download or reject
 
 ## How It Works
 
