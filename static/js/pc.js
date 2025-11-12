@@ -27,9 +27,23 @@ async function generateSession() {
         sessionId = data.session_id;
         
         // Display QR code
+        const qrCodeDiv = document.getElementById('qr-code');
+        qrCodeDiv.innerHTML = ''; // Clear any existing QR code
         const qrImg = document.createElement('img');
         qrImg.src = 'data:image/png;base64,' + data.qr_code;
-        document.getElementById('qr-code').appendChild(qrImg);
+        qrImg.style.maxWidth = '100%';
+        qrImg.style.height = 'auto';
+        qrImg.style.minWidth = '250px'; // Ensure minimum size for scanning
+        qrImg.alt = 'QR Code - Scan with your phone camera';
+        qrCodeDiv.appendChild(qrImg);
+        
+        // Display URL as fallback (use URL from response if available)
+        const mobileUrl = data.qr_url || `${window.location.origin}/mobile?session=${sessionId}`;
+        const urlLink = document.getElementById('qr-url-link');
+        if (urlLink) {
+            urlLink.href = mobileUrl;
+            urlLink.textContent = mobileUrl;
+        }
         
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('qr-container').classList.remove('hidden');

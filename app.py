@@ -67,8 +67,14 @@ def generate_session():
             }), 500
     
     # Create QR code with session URL
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(f"{host_url}mobile?session={session_id}")
+    qr_url = f"{host_url}mobile?session={session_id}"
+    qr = qrcode.QRCode(
+        version=1,
+        box_size=12,  # Larger box size for better scanning
+        border=4,
+        error_correction=qrcode.constants.ERROR_CORRECT_M
+    )
+    qr.add_data(qr_url)
     qr.make(fit=True)
     
     img = qr.make_image(fill_color="black", back_color="white")
@@ -87,7 +93,8 @@ def generate_session():
     
     return jsonify({
         'session_id': session_id,
-        'qr_code': qr_code_data
+        'qr_code': qr_code_data,
+        'qr_url': qr_url  # Return URL for display
     })
 
 @socketio.on('connect')

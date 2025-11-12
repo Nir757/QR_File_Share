@@ -66,10 +66,23 @@ h1 {
     padding: 20px;
 }
 
-#qr-code img {
-    max-width: 100%;
+#qr-code {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background: white;
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+#qr-code img {
+    max-width: 100%;
+    min-width: 250px;
+    width: auto;
+    height: auto;
+    border-radius: 10px;
+    display: block;
 }
 
 .status-text {
