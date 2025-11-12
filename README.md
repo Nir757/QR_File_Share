@@ -6,7 +6,6 @@ A web-based file sharing application that allows you to share files between your
 
 - 🌐 **Web-based**: No app installation needed - works in any modern browser
 - 📱 **Cross-platform**: Works on PC, Android, and iOS devices
-- 🔗 **Cross-network**: Share files even when devices are on different networks
 - 🎨 **Modern UI**: Beautiful, responsive interface
 - ⚡ **Fast**: Uses WebRTC for peer-to-peer file transfer
 
