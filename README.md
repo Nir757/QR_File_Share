@@ -18,6 +18,21 @@ A web-based file sharing application that allows you to share files between your
 
 ## Installation
 
+### Quick Start (Recommended)
+
+**Windows Users:**
+- Double-click `launcher.bat` - it will automatically install requirements on first launch!
+
+**Mac/Linux Users:**
+- Run `python launcher.py` or make it executable: `chmod +x launcher.py && ./launcher.py`
+
+The launcher will:
+- ✅ Install all requirements automatically on first launch
+- ✅ Open the app in your browser automatically
+- ✅ Skip installation on subsequent launches
+
+### Manual Installation
+
 1. Install Python dependencies:
 ```bash
 pip install -r requirements.txt
