@@ -5,6 +5,8 @@ let dataChannel = null;
 let receivedFiles = [];
 let fileQueue = [];
 let isSendingFile = false;
+let queueProcessingTimeout = null;
+let shouldStopQueue = false;
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', async () => {
@@ -160,8 +162,8 @@ function setupDataChannel() {
     
     // Monitor bufferedAmount to help with queue processing
     dataChannel.onbufferedamountlow = () => {
-        console.log('Buffer cleared, processing queue');
-        if (fileQueue.length > 0 && !isSendingFile) {
+        console.log('Buffer cleared, checking if we can process next file');
+        if (fileQueue.length > 0 && !isSendingFile && !shouldStopQueue) {
             processFileQueue();
         }
     };
@@ -418,9 +420,22 @@ function setupFileUpload() {
                 queueFile(file);
             });
             fileInput.value = ''; // Reset input
-            processFileQueue(); // Start processing queue
+            // Start processing queue if not already processing
+            if (!isSendingFile && fileQueue.length > 0) {
+                processFileQueue();
+            }
         }
     });
+    
+    // Setup cancel queue button
+    const cancelBtn = document.getElementById('cancel-queue-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            if (confirm(`Cancel ${fileQueue.length} file(s) in queue?`)) {
+                cancelQueue();
+            }
+        });
+    }
     
     // Drag and drop handlers
     uploadArea.addEventListener('dragover', (e) => {
@@ -454,48 +469,141 @@ function setupFileUpload() {
 function queueFile(file) {
     fileQueue.push(file);
     displaySendingFile(file, 'queued');
+    console.log('File queued:', file.name, 'Total in queue:', fileQueue.length);
+    updateCancelButton();
+}
+
+function cancelQueue() {
+    console.log('Cancelling queue...');
+    shouldStopQueue = true;
+    
+    // Clear the queue
+    const cancelledCount = fileQueue.length;
+    fileQueue.forEach(file => {
+        updateFileStatus(file.name, 'error');
+    });
+    fileQueue = [];
+    
+    // Clear timeout
+    if (queueProcessingTimeout) {
+        clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = null;
+    }
+    
+    // Reset sending flag
+    isSendingFile = false;
+    
+    console.log(`Cancelled ${cancelledCount} files from queue`);
+    updateCancelButton();
+}
+
+function updateCancelButton() {
+    const cancelBtn = document.getElementById('cancel-queue-btn');
+    if (cancelBtn) {
+        if (fileQueue.length > 0 || isSendingFile) {
+            cancelBtn.style.display = 'inline-block';
+            cancelBtn.textContent = `Cancel Queue (${fileQueue.length + (isSendingFile ? 1 : 0)})`;
+        } else {
+            cancelBtn.style.display = 'none';
+        }
+    }
 }
 
 async function processFileQueue() {
-    if (isSendingFile || fileQueue.length === 0) {
+    // Check if queue should be stopped
+    if (shouldStopQueue) {
+        console.log('Queue processing stopped by user');
+        shouldStopQueue = false;
+        return;
+    }
+    
+    // If we're currently sending a file, wait for it to finish
+    if (isSendingFile) {
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 300);
+        return;
+    }
+    
+    if (fileQueue.length === 0) {
+        console.log('File queue is empty');
+        updateCancelButton();
         return;
     }
     
     if (!dataChannel) {
         console.log('Data channel not initialized, waiting...');
-        setTimeout(processFileQueue, 500);
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 500);
         return;
     }
     
     if (dataChannel.readyState !== 'open') {
         console.log('Data channel not ready, state:', dataChannel.readyState, 'waiting...');
-        setTimeout(processFileQueue, 500);
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 500);
         return;
     }
     
-    // Wait for buffer to clear if it's getting full
-    const bufferThreshold = dataChannel.bufferedAmountLowThreshold || 256 * 1024;
-    if (dataChannel.bufferedAmount > bufferThreshold || dataChannel.bufferedAmount > 1024 * 1024) {
-        console.log('Buffer full, waiting...', dataChannel.bufferedAmount, 'bytes');
-        setTimeout(processFileQueue, 100);
+    // Wait for buffer to clear - be more conservative
+    const maxBufferSize = 128 * 1024; // 128KB max before waiting
+    
+    if (dataChannel.bufferedAmount > maxBufferSize) {
+        console.log('Buffer full, waiting...', Math.round(dataChannel.bufferedAmount / 1024), 'KB');
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 500);
         return;
     }
+    
+    // Get next file from queue
+    const file = fileQueue.shift();
+    if (!file) {
+        updateCancelButton();
+        return;
+    }
+    
+    console.log(`Processing file: ${file.name} (${fileQueue.length} remaining in queue)`);
+    updateCancelButton();
     
     isSendingFile = true;
-    const file = fileQueue.shift();
     
     try {
+        // Wait for buffer to be ready
+        let waitCount = 0;
+        while (dataChannel.bufferedAmount > 64 * 1024 && waitCount < 200) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            waitCount++;
+            if (shouldStopQueue) {
+                console.log('Queue stopped during buffer wait');
+                fileQueue.unshift(file); // Put file back in queue
+                isSendingFile = false;
+                shouldStopQueue = false;
+                updateCancelButton();
+                return;
+            }
+        }
+        
+        if (waitCount >= 200) {
+            console.warn('Buffer wait timeout for file:', file.name);
+        }
+        
         await sendFile(file);
+        console.log('File sent successfully:', file.name);
     } catch (error) {
         console.error('Error sending file:', error);
         updateFileStatus(file.name, 'error');
-    }
-    
-    // Small delay between files to prevent buffer overflow
-    setTimeout(() => {
+    } finally {
         isSendingFile = false;
-        processFileQueue(); // Process next file
-    }, 100);
+        
+        // Wait before processing next file to ensure buffer clears
+        if (fileQueue.length > 0 && !shouldStopQueue) {
+            if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+            queueProcessingTimeout = setTimeout(() => {
+                processFileQueue();
+            }, 300); // Wait 300ms between files
+        } else {
+            updateCancelButton();
+        }
+    }
 }
 
 async function sendFile(file) {
@@ -524,18 +632,56 @@ async function sendFile(file) {
                 // Update status to sending
                 updateFileStatus(file.name, 'sending');
                 
-                // Wait for buffer to be ready
-                while (dataChannel.bufferedAmount > 512 * 1024) {
+                // Wait for buffer to be ready - conservative approach
+                let waitCount = 0;
+                const maxWait = 300; // Max 15 seconds of waiting
+                while (dataChannel.bufferedAmount > 64 * 1024 && waitCount < maxWait) {
                     await new Promise(resolve => setTimeout(resolve, 50));
+                    waitCount++;
+                    if (shouldStopQueue) {
+                        reject(new Error('Queue cancelled by user'));
+                        return;
+                    }
                 }
                 
-                // Send file
-                dataChannel.send(JSON.stringify(fileData));
-                console.log('File sent:', file.name, 'Size:', file.size);
+                if (waitCount >= maxWait) {
+                    console.warn('Buffer wait timeout for file:', file.name, 'bufferedAmount:', dataChannel.bufferedAmount);
+                }
                 
-                // Update status to sent
-                updateFileStatus(file.name, 'sent');
-                resolve();
+                // Stringify and send
+                console.log('Stringifying file data for:', file.name);
+                const jsonString = JSON.stringify(fileData);
+                console.log('JSON string length:', Math.round(jsonString.length / 1024), 'KB');
+                
+                // Check if message is too large (WebRTC typically limits to 64KB-256KB)
+                if (jsonString.length > 256 * 1024) { // 256KB limit
+                    console.error('File too large to send in one message:', file.name, Math.round(jsonString.length / 1024), 'KB');
+                    updateFileStatus(file.name, 'error');
+                    reject(new Error(`File too large (${Math.round(jsonString.length / 1024)}KB). Maximum size is approximately 200KB.`));
+                    return;
+                }
+                
+                // Send file - ensure data channel is still open
+                if (dataChannel.readyState !== 'open') {
+                    reject(new Error('Data channel closed during send'));
+                    return;
+                }
+                
+                try {
+                    dataChannel.send(jsonString);
+                    console.log('File sent successfully:', file.name, 'Size:', file.size, 'JSON size:', Math.round(jsonString.length / 1024), 'KB');
+                    
+                    // Small delay to ensure message is queued
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Update status to sent
+                    updateFileStatus(file.name, 'sent');
+                    resolve();
+                } catch (sendError) {
+                    console.error('Error sending data channel message:', sendError);
+                    updateFileStatus(file.name, 'error');
+                    reject(sendError);
+                }
             } catch (error) {
                 console.error('Error sending file:', error);
                 updateFileStatus(file.name, 'error');

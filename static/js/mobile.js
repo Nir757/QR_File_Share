@@ -4,6 +4,11 @@ let peerConnection = null;
 let dataChannel = null;
 let qrScanner = null;
 let receivedFiles = [];
+let fileQueue = [];
+let isSendingFile = false;
+let sendingFiles = {}; // Track sending files by name
+let queueProcessingTimeout = null;
+let shouldStopQueue = false;
 
 // Get session ID from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -26,8 +31,39 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         // No session ID - show scanner
         console.log('No session ID in URL, showing scanner');
+        // Wait for QrScanner library to load
+        waitForQrScanner();
     }
 });
+
+function waitForQrScanner() {
+    if (typeof QrScanner !== 'undefined') {
+        console.log('QrScanner library loaded');
+        return;
+    }
+    
+    // Check every 100ms for up to 5 seconds
+    let attempts = 0;
+    const maxAttempts = 50;
+    const checkInterval = setInterval(() => {
+        attempts++;
+        if (typeof QrScanner !== 'undefined') {
+            console.log('QrScanner library loaded after', attempts * 100, 'ms');
+            clearInterval(checkInterval);
+        } else if (attempts >= maxAttempts) {
+            console.error('QrScanner library failed to load after 5 seconds');
+            clearInterval(checkInterval);
+            const scannerView = document.getElementById('scanner-view');
+            if (scannerView) {
+                scannerView.innerHTML = `
+                    <p class="subtitle" style="color: #d32f2f;">
+                        QR Scanner library failed to load. Please refresh the page.
+                    </p>
+                `;
+            }
+        }
+    }, 100);
+}
 
 function setupSocketListeners() {
     socket.on('connect', () => {
@@ -89,45 +125,185 @@ function setupFileHandlers() {
 
 function startScanner() {
     const video = document.getElementById('qr-video');
+    const startBtn = document.getElementById('start-scanner');
+    
+    if (!video) {
+        console.error('QR video element not found');
+        alert('QR video element not found. Please refresh the page.');
+        return;
+    }
+    
+    // Check if QrScanner is available
+    if (typeof QrScanner === 'undefined') {
+        alert('QR Scanner library not loaded. Please refresh the page.');
+        console.error('QrScanner is not defined');
+        return;
+    }
+    
+    // Hide the start button and show video
+    if (startBtn) {
+        startBtn.style.display = 'none';
+    }
     video.classList.remove('hidden');
     
-    qrScanner = new QrScanner(
-        video,
-        result => {
-            handleQRCode(result);
-        },
-        {
-            returnDetailedScanResult: true,
-            highlightScanRegion: true
-        }
-    );
+    // Set video styles to ensure it's visible
+    video.style.width = '100%';
+    video.style.maxWidth = '400px';
+    video.style.borderRadius = '10px';
+    video.style.margin = '20px auto';
+    video.style.display = 'block';
     
-    qrScanner.start().catch(err => {
-        console.error('Error starting scanner:', err);
-        alert('Failed to start camera. Please allow camera access.');
-    });
+    console.log('Initializing QR Scanner...');
+    
+    try {
+        // Try without returnDetailedScanResult first to see if callback works
+        qrScanner = new QrScanner(
+            video,
+            result => {
+                console.log('QR Scanner callback triggered!');
+                console.log('Result:', result);
+                console.log('Result type:', typeof result);
+                
+                // Handle the result - QrScanner might return the data directly or as an object
+                let scanResult = result;
+                if (result && typeof result === 'object' && result.data) {
+                    scanResult = result.data;
+                } else if (typeof result === 'string') {
+                    scanResult = result;
+                }
+                
+                console.log('Processed scan result:', scanResult);
+                handleQRCode(scanResult);
+            },
+            {
+                // Try simpler config first
+                highlightScanRegion: true,
+                maxScansPerSecond: 10,
+                preferredCamera: 'environment', // Use back camera on mobile
+                returnDetailedScanResult: false // Try false first - simpler
+            }
+        );
+        
+        console.log('QR Scanner instance created, starting...');
+        
+        qrScanner.start().then(() => {
+            console.log('QR Scanner started successfully');
+            // Add a visual indicator that scanning is active
+            const scannerView = document.getElementById('scanner-view');
+            if (scannerView) {
+                const statusText = scannerView.querySelector('.scan-status');
+                if (!statusText) {
+                    const status = document.createElement('p');
+                    status.className = 'scan-status';
+                    status.style.color = '#4caf50';
+                    status.style.marginTop = '10px';
+                    status.style.fontWeight = '600';
+                    status.textContent = '📷 Camera active - Point at QR code';
+                    scannerView.appendChild(status);
+                }
+            }
+        }).catch(err => {
+            console.error('Error starting scanner:', err);
+            alert('Failed to start camera: ' + (err.message || 'Please allow camera access and try again.'));
+            // Reset video visibility on error
+            video.classList.add('hidden');
+            if (startBtn) {
+                startBtn.style.display = 'block';
+            }
+        });
+    } catch (error) {
+        console.error('Error creating QR Scanner:', error);
+        alert('Error initializing QR scanner: ' + error.message);
+        video.classList.add('hidden');
+        if (startBtn) {
+            startBtn.style.display = 'block';
+        }
+    }
 }
 
 function handleQRCode(result) {
-    const url = result.data;
+    console.log('=== QR Code Handler Called ===');
+    console.log('QR Code scanned - Full result:', result);
+    console.log('Result type:', typeof result);
+    if (result && typeof result === 'object') {
+        console.log('Result keys:', Object.keys(result));
+        console.log('Result stringified:', JSON.stringify(result));
+    }
+    
+    // Handle both detailed result object and plain string
+    let url;
+    if (typeof result === 'string') {
+        url = result.trim();
+        console.log('Result is a string:', url);
+    } else if (result && typeof result === 'object') {
+        // Try different possible properties
+        if (result.data) {
+            url = typeof result.data === 'string' ? result.data.trim() : result.data;
+            console.log('Found URL in result.data:', url);
+        } else if (result.result) {
+            url = typeof result.result === 'string' ? result.result.trim() : result.result;
+            console.log('Found URL in result.result:', url);
+        } else if (result.text) {
+            url = typeof result.text === 'string' ? result.text.trim() : result.text;
+            console.log('Found URL in result.text:', url);
+        } else {
+            // Try to stringify and parse
+            console.log('Trying to extract URL from result object');
+            const stringified = JSON.stringify(result);
+            const urlMatch = stringified.match(/https?:\/\/[^\s"'}]+/);
+            if (urlMatch) {
+                url = urlMatch[0];
+                console.log('Extracted URL from stringified result:', url);
+            }
+        }
+    }
+    
+    if (!url) {
+        console.error('No URL found in QR code result. Full result:', result);
+        alert('Could not read QR code. Please try scanning again.\n\nDebug info: ' + JSON.stringify(result).substring(0, 100));
+        return;
+    }
+    
+    console.log('Processing URL:', url);
     
     try {
         const urlObj = new URL(url);
         const newSessionId = urlObj.searchParams.get('session');
         
+        console.log('Parsed URL:', urlObj.href);
+        console.log('Session ID:', newSessionId);
+        
         if (newSessionId) {
-            // Stop scanner
-            qrScanner.stop();
-            qrScanner.destroy();
+            console.log('Valid QR code detected, session ID:', newSessionId);
             
-            // Navigate to the URL to ensure proper page load with session ID
-            window.location.href = url;
+            // Show feedback
+            const scannerView = document.getElementById('scanner-view');
+            if (scannerView) {
+                const statusText = scannerView.querySelector('.scan-status');
+                if (statusText) {
+                    statusText.textContent = '✓ QR Code detected! Connecting...';
+                    statusText.style.color = '#4caf50';
+                }
+            }
+            
+            // Stop scanner
+            if (qrScanner) {
+                qrScanner.stop().catch(err => console.error('Error stopping scanner:', err));
+                qrScanner.destroy();
+                qrScanner = null;
+            }
+            
+            // Small delay to show feedback, then navigate
+            setTimeout(() => {
+                window.location.href = url;
+            }, 500);
         } else {
-            alert('Invalid QR code. Please scan the QR code from your computer.');
+            console.warn('QR code URL does not contain session ID');
+            alert('Invalid QR code. Please scan the QR code from your computer.\n\nURL: ' + url);
         }
     } catch (error) {
-        console.error('Error parsing QR code URL:', error);
-        alert('Invalid QR code format. Please scan again.');
+        console.error('Error parsing QR code URL:', error, 'URL:', url);
+        alert('Invalid QR code format. Please scan again.\n\nError: ' + error.message + '\nURL: ' + url);
     }
 }
 
@@ -172,18 +348,41 @@ async function handleOffer(offer) {
 function setupDataChannel() {
     dataChannel.onopen = () => {
         console.log('Data channel opened');
+        // Set buffer threshold for monitoring
+        dataChannel.bufferedAmountLowThreshold = 256 * 1024; // 256KB
         // Setup file upload handlers once data channel is ready
         setupFileInputHandlers();
+        // Start processing queue if there are files waiting
+        if (fileQueue.length > 0) {
+            processFileQueue();
+        }
+    };
+    
+    // Monitor bufferedAmount to help with queue processing
+    dataChannel.onbufferedamountlow = () => {
+        console.log('Buffer cleared, checking if we can process next file');
+        if (fileQueue.length > 0 && !isSendingFile && !shouldStopQueue) {
+            processFileQueue();
+        }
     };
     
     dataChannel.onmessage = (event) => {
         try {
+            console.log('Received message on data channel, size:', event.data.length);
             const data = JSON.parse(event.data);
+            console.log('Parsed data, type:', data.type);
             if (data.type === 'file') {
+                console.log('Receiving file:', data.name, 'Size:', data.size);
                 receiveFile(data);
+            } else {
+                console.warn('Unknown message type:', data.type);
             }
         } catch (error) {
             console.error('Error handling data channel message:', error);
+            console.error('Message length:', event.data ? event.data.length : 'null');
+            console.error('Message preview:', event.data ? event.data.substring(0, 200) : 'null');
+            // Try to show user-friendly error
+            alert('Error receiving file. The file might be too large or corrupted.');
         }
     };
     
@@ -193,18 +392,42 @@ function setupDataChannel() {
 }
 
 function receiveFile(data) {
+    console.log('receiveFile called with:', {
+        name: data.name,
+        size: data.size,
+        fileType: data.fileType,
+        type: data.type,
+        hasData: !!data.data,
+        dataLength: data.data ? data.data.length : 0
+    });
+    
+    // Handle both fileType and type properties for compatibility
+    const fileType = data.fileType || data.type || 'application/octet-stream';
+    
+    if (!data.name) {
+        console.error('Received file without name:', data);
+        return;
+    }
+    
+    if (!data.data) {
+        console.error('Received file without data:', data.name);
+        return;
+    }
+    
     const fileData = {
         id: Date.now() + Math.random(), // Unique ID for each file
         name: data.name,
-        size: data.size,
-        type: data.fileType,
+        size: data.size || 0,
+        type: fileType,
         data: data.data,
         downloaded: false
     };
     
+    console.log('Adding file to receivedFiles:', fileData.name);
     receivedFiles.push(fileData);
     displayReceivedFile(fileData);
     updateDownloadAllButton();
+    console.log('Total received files:', receivedFiles.length);
 }
 
 function displayReceivedFile(file) {
@@ -409,78 +632,340 @@ function setupFileInputHandlers() {
         });
     }
     
-    // Handle file selection - send immediately on mobile
+    // Handle file selection - queue files for sending
     fileInput.addEventListener('change', (e) => {
         const files = e.target.files;
         if (files.length > 0) {
             Array.from(files).forEach(file => {
-                sendFile(file);
+                queueFile(file);
             });
             // Clear the input so the same file can be selected again
             fileInput.value = '';
+            // Start processing queue if not already processing
+            if (!isSendingFile && fileQueue.length > 0) {
+                processFileQueue();
+            }
         }
     });
+    
+    // Setup cancel queue button
+    const cancelBtn = document.getElementById('cancel-queue-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            if (confirm(`Cancel ${fileQueue.length} file(s) in queue?`)) {
+                cancelQueue();
+            }
+        });
+    }
 }
 
-async function sendFile(file) {
+function queueFile(file) {
+    fileQueue.push(file);
+    displaySendingFile(file, 'queued');
+    console.log('File queued:', file.name, 'Total in queue:', fileQueue.length);
+    updateCancelButton();
+}
+
+function cancelQueue() {
+    console.log('Cancelling queue...');
+    shouldStopQueue = true;
+    
+    // Clear the queue
+    const cancelledCount = fileQueue.length;
+    fileQueue.forEach(file => {
+        updateFileStatus(file.name, 'error');
+    });
+    fileQueue = [];
+    
+    // Clear timeout
+    if (queueProcessingTimeout) {
+        clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = null;
+    }
+    
+    // Reset sending flag
+    isSendingFile = false;
+    
+    console.log(`Cancelled ${cancelledCount} files from queue`);
+    updateCancelButton();
+}
+
+function updateCancelButton() {
+    const cancelBtn = document.getElementById('cancel-queue-btn');
+    if (cancelBtn) {
+        if (fileQueue.length > 0 || isSendingFile) {
+            cancelBtn.style.display = 'inline-block';
+            cancelBtn.textContent = `Cancel Queue (${fileQueue.length + (isSendingFile ? 1 : 0)})`;
+        } else {
+            cancelBtn.style.display = 'none';
+        }
+    }
+}
+
+async function processFileQueue() {
+    // Check if queue should be stopped
+    if (shouldStopQueue) {
+        console.log('Queue processing stopped by user');
+        shouldStopQueue = false;
+        return;
+    }
+    
+    // If we're currently sending a file, wait for it to finish
+    if (isSendingFile) {
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 300);
+        return;
+    }
+    
+    if (fileQueue.length === 0) {
+        console.log('File queue is empty');
+        updateCancelButton();
+        return;
+    }
+    
     if (!dataChannel) {
-        alert('Connection not ready. Please wait for the connection to establish...');
+        console.log('Data channel not initialized, waiting...');
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 500);
         return;
     }
     
     if (dataChannel.readyState !== 'open') {
-        alert('Data channel not ready. Please wait a moment and try again.');
-        console.log('Data channel state:', dataChannel.readyState);
+        console.log('Data channel not ready, state:', dataChannel.readyState, 'waiting...');
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 500);
         return;
     }
     
-    const reader = new FileReader();
-    reader.onerror = (error) => {
-        console.error('FileReader error:', error);
-        alert('Error reading file. Please try again.');
-    };
+    // Wait for buffer to clear - be more conservative
+    const maxBufferSize = 128 * 1024; // 128KB max before waiting
     
-    reader.onload = async (e) => {
-        try {
-            const arrayBuffer = e.target.result;
-            const base64 = arrayBufferToBase64(arrayBuffer);
-            
-            const fileData = {
-                type: 'file',
-                name: file.name,
-                size: file.size,
-                fileType: file.type,
-                data: base64
-            };
-            
-            // Display in file list
-            displaySendingFile(file);
-            
-            // Send file
-            dataChannel.send(JSON.stringify(fileData));
-            console.log('File sent:', file.name);
-        } catch (error) {
-            console.error('Error sending file:', error);
-            alert('Error sending file. Please try again.');
+    if (dataChannel.bufferedAmount > maxBufferSize) {
+        console.log('Buffer full, waiting...', Math.round(dataChannel.bufferedAmount / 1024), 'KB');
+        if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = setTimeout(processFileQueue, 500);
+        return;
+    }
+    
+    // Get next file from queue
+    const file = fileQueue.shift();
+    if (!file) {
+        updateCancelButton();
+        return;
+    }
+    
+    console.log(`Processing file: ${file.name} (${fileQueue.length} remaining in queue)`);
+    updateCancelButton();
+    
+    isSendingFile = true;
+    
+    try {
+        // Wait for buffer to be ready
+        let waitCount = 0;
+        while (dataChannel.bufferedAmount > 64 * 1024 && waitCount < 200) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            waitCount++;
+            if (shouldStopQueue) {
+                console.log('Queue stopped during buffer wait');
+                fileQueue.unshift(file); // Put file back in queue
+                isSendingFile = false;
+                shouldStopQueue = false;
+                updateCancelButton();
+                return;
+            }
         }
-    };
-    reader.readAsArrayBuffer(file);
+        
+        if (waitCount >= 200) {
+            console.warn('Buffer wait timeout for file:', file.name);
+        }
+        
+        await sendFile(file);
+        console.log('File sent successfully:', file.name);
+    } catch (error) {
+        console.error('Error sending file:', error);
+        updateFileStatus(file.name, 'error');
+    } finally {
+        isSendingFile = false;
+        
+        // Wait before processing next file to ensure buffer clears
+        if (fileQueue.length > 0 && !shouldStopQueue) {
+            if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
+            queueProcessingTimeout = setTimeout(() => {
+                processFileQueue();
+            }, 300); // Wait 300ms between files
+        } else {
+            updateCancelButton();
+        }
+    }
 }
 
-function displaySendingFile(file) {
+async function sendFile(file) {
+    return new Promise((resolve, reject) => {
+        if (!dataChannel) {
+            const error = new Error('Connection not ready. Please wait for the connection to establish...');
+            updateFileStatus(file.name, 'error');
+            reject(error);
+            return;
+        }
+        
+        if (dataChannel.readyState !== 'open') {
+            const error = new Error('Data channel not ready. Please wait a moment and try again.');
+            console.log('Data channel state:', dataChannel.readyState);
+            updateFileStatus(file.name, 'error');
+            reject(error);
+            return;
+        }
+        
+        // Check file size - warn if very large
+        if (file.size > 50 * 1024 * 1024) { // 50MB
+            console.warn('Large file detected:', file.name, Math.round(file.size / 1024 / 1024), 'MB');
+        }
+        
+        const reader = new FileReader();
+        reader.onerror = (error) => {
+            console.error('FileReader error:', error);
+            updateFileStatus(file.name, 'error');
+            isSendingFile = false;
+            reject(error);
+        };
+        
+        reader.onload = async (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                console.log('File read, converting to base64:', file.name, 'Size:', Math.round(arrayBuffer.byteLength / 1024), 'KB');
+                
+                const base64 = arrayBufferToBase64(arrayBuffer);
+                console.log('Base64 conversion complete, length:', base64.length);
+                
+                const fileData = {
+                    type: 'file',
+                    name: file.name,
+                    size: file.size,
+                    fileType: file.type,
+                    data: base64
+                };
+                
+                // Update status to sending
+                updateFileStatus(file.name, 'sending');
+                
+                // Wait for buffer to be ready - conservative approach
+                let waitCount = 0;
+                const maxWait = 300; // Max 15 seconds of waiting
+                while (dataChannel.bufferedAmount > 64 * 1024 && waitCount < maxWait) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    waitCount++;
+                    if (shouldStopQueue) {
+                        reject(new Error('Queue cancelled by user'));
+                        return;
+                    }
+                }
+                
+                if (waitCount >= maxWait) {
+                    console.warn('Buffer wait timeout for file:', file.name, 'bufferedAmount:', dataChannel.bufferedAmount);
+                }
+                
+                // Stringify and send
+                console.log('Stringifying file data for:', file.name);
+                const jsonString = JSON.stringify(fileData);
+                console.log('JSON string length:', Math.round(jsonString.length / 1024), 'KB');
+                
+                // Check if message is too large (WebRTC typically limits to 64KB-256KB)
+                if (jsonString.length > 256 * 1024) { // 256KB limit
+                    console.error('File too large to send in one message:', file.name, Math.round(jsonString.length / 1024), 'KB');
+                    updateFileStatus(file.name, 'error');
+                    reject(new Error(`File too large (${Math.round(jsonString.length / 1024)}KB). Maximum size is approximately 200KB.`));
+                    return;
+                }
+                
+                // Send file - ensure data channel is still open
+                if (dataChannel.readyState !== 'open') {
+                    reject(new Error('Data channel closed during send'));
+                    return;
+                }
+                
+                try {
+                    dataChannel.send(jsonString);
+                    console.log('File sent successfully:', file.name, 'Size:', file.size, 'JSON size:', Math.round(jsonString.length / 1024), 'KB');
+                    
+                    // Small delay to ensure message is queued
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Update status to sent
+                    updateFileStatus(file.name, 'sent');
+                    resolve();
+                } catch (sendError) {
+                    console.error('Error sending data channel message:', sendError);
+                    updateFileStatus(file.name, 'error');
+                    reject(sendError);
+                }
+            } catch (error) {
+                console.error('Error processing file:', error);
+                updateFileStatus(file.name, 'error');
+                reject(error);
+            }
+        };
+        
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function displaySendingFile(file, status = 'queued') {
     const container = document.getElementById('file-list');
+    
+    // Check if file already displayed
+    if (sendingFiles[file.name]) {
+        updateFileStatus(file.name, status);
+        return;
+    }
+    
     const fileItem = document.createElement('div');
-    fileItem.className = 'file-item';
+    fileItem.className = 'file-item sending-file';
+    fileItem.id = `sending-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
     fileItem.innerHTML = `
         <div class="file-info">
             <div class="file-name">${file.name}</div>
             <div class="file-size">${formatFileSize(file.size)}</div>
+            <div class="file-status" id="status-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}">Queued...</div>
             <div class="file-progress">
-                <div class="file-progress-bar" style="width: 100%"></div>
+                <div class="file-progress-bar" id="progress-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}" style="width: 0%"></div>
             </div>
         </div>
     `;
     container.appendChild(fileItem);
+    sendingFiles[file.name] = fileItem;
+    updateFileStatus(file.name, status);
+}
+
+function updateFileStatus(fileName, status) {
+    const statusId = `status-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const progressId = `progress-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const statusEl = document.getElementById(statusId);
+    const progressEl = document.getElementById(progressId);
+    
+    if (statusEl) {
+        switch(status) {
+            case 'queued':
+                statusEl.textContent = 'Queued...';
+                statusEl.style.color = '#ffa726';
+                if (progressEl) progressEl.style.width = '10%';
+                break;
+            case 'sending':
+                statusEl.textContent = 'Sending...';
+                statusEl.style.color = '#667eea';
+                if (progressEl) progressEl.style.width = '50%';
+                break;
+            case 'sent':
+                statusEl.textContent = '✓ Sent';
+                statusEl.style.color = '#4caf50';
+                if (progressEl) progressEl.style.width = '100%';
+                break;
+            case 'error':
+                statusEl.textContent = '✗ Error';
+                statusEl.style.color = '#f44336';
+                if (progressEl) progressEl.style.width = '100%';
+                break;
+        }
+    }
 }
 
 function arrayBufferToBase64(buffer) {

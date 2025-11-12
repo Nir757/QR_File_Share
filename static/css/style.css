@@ -304,6 +304,11 @@ h1 {
     background: #e8f5e9;
 }
 
+.file-item.sending-file {
+    border-left: 4px solid #667eea;
+    background: #f0f0ff;
+}
+
 .file-actions {
     display: flex;
     gap: 8px;

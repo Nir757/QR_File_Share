@@ -31,7 +31,10 @@
                 <p>Your computer is connected. You can now share files.</p>
                 
                 <div class="file-section">
-                    <h3>Send Files</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                        <h3 style="margin: 0;">Send Files</h3>
+                        <button id="cancel-queue-btn" class="btn-reject-all" style="display: none;">Cancel Queue</button>
+                    </div>
                     <div class="file-upload-area" id="file-upload-area">
                         <input type="file" id="file-input" multiple accept="*/*" style="display: none;">
                         <div class="upload-icon">📎</div>
