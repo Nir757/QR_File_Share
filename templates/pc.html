@@ -10,22 +10,46 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>📁 QR File Share</h1>
-            <p class="subtitle">Scan the QR code with your phone to connect</p>
-            
-            <div id="loading" class="loading">
-                <div class="spinner"></div>
-                <p>Generating QR code...</p>
-            </div>
-            
-            <div id="qr-container" class="qr-container hidden">
-                <div id="qr-code"></div>
-                <p class="status-text" id="status">Waiting for mobile device to connect...</p>
-                <div id="qr-url" style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; word-break: break-all; font-size: 0.85em; color: #666;">
-                    <strong>Or open this URL on your phone:</strong><br>
-                    <a id="qr-url-link" href="#" target="_blank" style="color: #667eea; text-decoration: none;">Loading...</a>
+            <div class="card-header">
+                <div class="card-header-left">
+                    <div class="card-header-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="docGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#42A5F5;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#4CAF50;stop-opacity:1" />
+                                </linearGradient>
+                                <filter id="shadow">
+                                    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+                                </filter>
+                            </defs>
+                            <!-- Main document shape with rounded corners -->
+                            <path d="M6 5C5.4 5 5 5.4 5 6V26C5 26.6 5.4 27 6 27H24C24.6 27 25 26.6 25 26V11L19 5H6Z" fill="url(#docGradient)" filter="url(#shadow)"/>
+                            <!-- Folded corner triangle -->
+                            <path d="M19 5V11H25L19 5Z" fill="url(#docGradient)" opacity="0.85"/>
+                            <!-- Folded corner highlight for depth -->
+                            <path d="M19 5L25 11H19V5Z" fill="white" opacity="0.35"/>
+                        </svg>
+                    </div>
+                    <h1>QR File Share</h1>
                 </div>
             </div>
+            
+            <div class="card-body">
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Generating QR code...</p>
+                </div>
+                
+                <div id="qr-container" class="qr-container hidden">
+                    <p class="qr-preview-label">QR Code Preview</p>
+                    <div id="qr-code"></div>
+                    <p class="status-text" id="status">Waiting for mobile device to connect...</p>
+                    <div id="qr-url">
+                        <strong>Or open this URL on your phone:</strong><br>
+                        <a id="qr-url-link" href="#" target="_blank">Loading...</a>
+                    </div>
+                </div>
             
             <div id="connected-view" class="connected-view hidden">
                 <div class="success-icon">✓</div>
@@ -56,10 +80,11 @@
                         </div>
                     </div>
                     <div id="received-files" class="file-list"></div>
-                    <div id="no-files-message" class="no-files-message" style="text-align: center; color: #999; padding: 20px;">
+                    <div id="no-files-message" class="no-files-message">
                         No files received yet
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     </div>
