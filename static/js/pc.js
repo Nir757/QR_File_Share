@@ -55,7 +55,7 @@ function setupSocketListeners() {
         document.getElementById('qr-container').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
-        setupFileUpload();
+        // setupFileUpload() will be called when data channel opens
     });
     
     socket.on('webrtc_offer', async (data) => {
@@ -134,6 +134,8 @@ async function handleOffer(offer) {
 function setupDataChannel() {
     dataChannel.onopen = () => {
         console.log('Data channel opened');
+        // Setup file upload handlers once data channel is ready
+        setupFileUpload();
     };
     
     dataChannel.onmessage = (event) => {
@@ -145,6 +147,10 @@ function setupDataChannel() {
         } catch (error) {
             console.error('Error handling data channel message:', error);
         }
+    };
+    
+    dataChannel.onerror = (error) => {
+        console.error('Data channel error:', error);
     };
     
     peerConnection.ondatachannel = (event) => {
@@ -278,29 +284,46 @@ function setupFileUpload() {
 
 
 async function sendFile(file) {
-    if (!dataChannel || dataChannel.readyState !== 'open') {
-        alert('Connection not ready. Please wait...');
+    if (!dataChannel) {
+        alert('Connection not ready. Please wait for the connection to establish...');
+        return;
+    }
+    
+    if (dataChannel.readyState !== 'open') {
+        alert('Data channel not ready. Please wait a moment and try again.');
+        console.log('Data channel state:', dataChannel.readyState);
         return;
     }
     
     const reader = new FileReader();
+    reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        alert('Error reading file. Please try again.');
+    };
+    
     reader.onload = async (e) => {
-        const arrayBuffer = e.target.result;
-        const base64 = arrayBufferToBase64(arrayBuffer);
-        
-        const fileData = {
-            type: 'file',
-            name: file.name,
-            size: file.size,
-            fileType: file.type,
-            data: base64
-        };
-        
-        // Display in file list
-        displaySendingFile(file);
-        
-        // Send file
-        dataChannel.send(JSON.stringify(fileData));
+        try {
+            const arrayBuffer = e.target.result;
+            const base64 = arrayBufferToBase64(arrayBuffer);
+            
+            const fileData = {
+                type: 'file',
+                name: file.name,
+                size: file.size,
+                fileType: file.type,
+                data: base64
+            };
+            
+            // Display in file list
+            displaySendingFile(file);
+            
+            // Send file
+            dataChannel.send(JSON.stringify(fileData));
+            console.log('File sent:', file.name);
+        } catch (error) {
+            console.error('Error sending file:', error);
+            alert('Error sending file. Please try again.');
+        }
     };
     reader.readAsArrayBuffer(file);
 }
