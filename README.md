@@ -18,7 +18,7 @@ A web-based file sharing application that allows you to share files between your
 
 ## Installation
 
-### Quick Start (Recommended)
+### PC Setup (One-time)
 
 **Windows Users:**
 - Double-click `launcher.bat` - it will automatically install requirements on first launch!
@@ -27,11 +27,15 @@ A web-based file sharing application that allows you to share files between your
 - Run `python launcher.py` or make it executable: `chmod +x launcher.py && ./launcher.py`
 
 The launcher will:
-- ✅ Install all requirements automatically on first launch
+- ✅ Install all Python requirements automatically on first launch
 - ✅ Open the app in your browser automatically
-- ✅ Skip installation on subsequent launches
+- ✅ Skip installation on subsequent launches (just opens the app)
 
-### Manual Installation
+**Note:** The PC needs Python installed. The mobile device needs nothing - just a web browser!
+
+### Manual PC Setup (Alternative)
+
+If you prefer manual setup:
 
 1. Install Python dependencies:
 ```bash
@@ -43,9 +47,9 @@ pip install -r requirements.txt
 python app.py
 ```
 
-3. Open your browser and navigate to:
-   - **PC**: `http://localhost:5000`
-   - **Mobile**: Scan the QR code displayed on PC
+### Mobile Setup
+
+**No installation needed!** Just scan the QR code with your phone's camera when the PC app is running.
 
 ## Usage
 
