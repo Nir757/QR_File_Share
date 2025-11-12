@@ -15,6 +15,12 @@ async function generateSession() {
         const response = await fetch('/api/generate-session', {
             method: 'POST'
         });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to generate session');
+        }
+        
         const data = await response.json();
         sessionId = data.session_id;
         
@@ -30,7 +36,17 @@ async function generateSession() {
         socket.emit('pc_join', { session_id: sessionId });
     } catch (error) {
         console.error('Error generating session:', error);
-        alert('Failed to generate QR code. Please refresh the page.');
+        document.getElementById('loading').innerHTML = `
+            <div style="color: #d32f2f; padding: 20px;">
+                <h3>Error: ${error.message}</h3>
+                <p>Please make sure:</p>
+                <ul style="text-align: left; display: inline-block;">
+                    <li>Your PC and phone are on the same Wi-Fi network</li>
+                    <li>Windows Firewall allows connections on port 5000</li>
+                    <li>Try accessing this page using your local IP address directly</li>
+                </ul>
+            </div>
+        `;
     }
 }
 
