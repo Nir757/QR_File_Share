@@ -5,6 +5,7 @@ import io
 import base64
 import uuid
 import os
+import socket
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
@@ -12,6 +13,27 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Store active sessions
 sessions = {}
+
+def get_local_ip():
+    """Get the local IP address of this machine"""
+    try:
+        # Connect to a remote address to determine local IP
+        # This doesn't actually send data, just determines the route
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        # Fallback: try to get hostname IP
+        try:
+            hostname = socket.gethostname()
+            ip = socket.gethostbyname(hostname)
+            if ip.startswith("127."):
+                return None
+            return ip
+        except Exception:
+            return None
 
 @app.route('/')
 def index():
@@ -28,9 +50,22 @@ def generate_session():
     """Generate a new session and QR code"""
     session_id = str(uuid.uuid4())
     
+    # Get the base URL - use local IP if accessing via localhost
+    host_url = request.host_url
+    if '127.0.0.1' in host_url or 'localhost' in host_url:
+        local_ip = get_local_ip()
+        if local_ip:
+            # Replace localhost/127.0.0.1 with actual IP
+            host_url = f"http://{local_ip}:5000/"
+        else:
+            # If we can't get IP, show a message (handled in frontend)
+            return jsonify({
+                'error': 'Could not determine local IP address. Please access this page using your local IP address directly.'
+            }), 500
+    
     # Create QR code with session URL
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(f"{request.host_url}mobile?session={session_id}")
+    qr.add_data(f"{host_url}mobile?session={session_id}")
     qr.make(fit=True)
     
     img = qr.make_image(fill_color="black", back_color="white")
