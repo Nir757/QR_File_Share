@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR File Share - PC</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>📁 QR File Share</h1>
+            <p class="subtitle">Scan the QR code with your phone to connect</p>
+            
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Generating QR code...</p>
+            </div>
+            
+            <div id="qr-container" class="qr-container hidden">
+                <div id="qr-code"></div>
+                <p class="status-text" id="status">Waiting for mobile device to connect...</p>
+            </div>
+            
+            <div id="connected-view" class="connected-view hidden">
+                <div class="success-icon">✓</div>
+                <h2>Connected!</h2>
+                <p>Your phone is connected. You can now share files.</p>
+                
+                <div class="file-section">
+                    <h3>Send Files</h3>
+                    <input type="file" id="file-input" multiple>
+                    <button id="send-btn" class="btn-primary">Send Files</button>
+                    <div id="file-list" class="file-list"></div>
+                </div>
+                
+                <div class="file-section">
+                    <h3>Received Files</h3>
+                    <div id="received-files" class="file-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/pc.js') }}"></script>
+</body>
+</html>
+
