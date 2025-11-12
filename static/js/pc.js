@@ -170,29 +170,119 @@ function setupDataChannel() {
 
 function receiveFile(data) {
     const fileData = {
+        id: Date.now() + Math.random(), // Unique ID for each file
         name: data.name,
         size: data.size,
         type: data.type,
-        data: data.data
+        data: data.data,
+        downloaded: false
     };
     
     receivedFiles.push(fileData);
     displayReceivedFile(fileData);
-    downloadFile(fileData);
+    updateDownloadAllButton();
 }
 
 function displayReceivedFile(file) {
     const container = document.getElementById('received-files');
+    const noFilesMsg = document.getElementById('no-files-message');
+    
+    if (noFilesMsg) {
+        noFilesMsg.style.display = 'none';
+    }
+    
     const fileItem = document.createElement('div');
-    fileItem.className = 'file-item';
+    fileItem.className = 'file-item pending-file';
+    fileItem.id = `file-${file.id}`;
     fileItem.innerHTML = `
         <div class="file-info">
             <div class="file-name">${file.name}</div>
             <div class="file-size">${formatFileSize(file.size)}</div>
         </div>
+        <div class="file-actions">
+            <button class="btn-accept" onclick="acceptFile('${file.id}')">✓ Accept</button>
+            <button class="btn-reject" onclick="rejectFile('${file.id}')">✗ Reject</button>
+        </div>
     `;
     container.appendChild(fileItem);
 }
+
+function acceptFile(fileId) {
+    const file = receivedFiles.find(f => f.id.toString() === fileId.toString());
+    if (file && !file.downloaded) {
+        downloadFile(file);
+        file.downloaded = true;
+        updateFileItemUI(fileId, true);
+    }
+}
+
+function rejectFile(fileId) {
+    const fileItem = document.getElementById(`file-${fileId}`);
+    if (fileItem) {
+        fileItem.style.opacity = '0.5';
+        fileItem.querySelector('.file-actions').innerHTML = '<span style="color: #999;">Rejected</span>';
+    }
+    
+    const file = receivedFiles.find(f => f.id.toString() === fileId.toString());
+    if (file) {
+        file.downloaded = true; // Mark as processed
+    }
+    
+    updateDownloadAllButton();
+}
+
+function updateFileItemUI(fileId, accepted) {
+    const fileItem = document.getElementById(`file-${fileId}`);
+    if (fileItem) {
+        if (accepted) {
+            fileItem.classList.remove('pending-file');
+            fileItem.classList.add('downloaded-file');
+            fileItem.querySelector('.file-actions').innerHTML = '<span style="color: #4caf50;">✓ Downloaded</span>';
+        }
+    }
+    updateDownloadAllButton();
+}
+
+function updateDownloadAllButton() {
+    const downloadAllBtn = document.getElementById('download-all-btn');
+    const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+    
+    if (pendingFiles.length > 0) {
+        if (downloadAllBtn) {
+            downloadAllBtn.style.display = 'inline-block';
+            downloadAllBtn.textContent = `Download All (${pendingFiles.length})`;
+        }
+    } else {
+        if (downloadAllBtn) {
+            downloadAllBtn.style.display = 'none';
+        }
+    }
+    
+    // Show "no files" message if all files are processed
+    const noFilesMsg = document.getElementById('no-files-message');
+    if (receivedFiles.length === 0 && noFilesMsg) {
+        noFilesMsg.style.display = 'block';
+    } else if (noFilesMsg) {
+        noFilesMsg.style.display = 'none';
+    }
+}
+
+// Make functions globally accessible
+window.acceptFile = acceptFile;
+window.rejectFile = rejectFile;
+
+// Download all pending files
+document.addEventListener('DOMContentLoaded', () => {
+    const downloadAllBtn = document.getElementById('download-all-btn');
+    if (downloadAllBtn) {
+        downloadAllBtn.addEventListener('click', () => {
+            const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+            pendingFiles.forEach(file => {
+                acceptFile(file.id.toString());
+            });
+        });
+    }
+});
 
 function downloadFile(file) {
     const blob = new Blob([base64ToArrayBuffer(file.data)], { type: file.type });
