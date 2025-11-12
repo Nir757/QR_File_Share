@@ -303,31 +303,40 @@ window.rejectAllFiles = rejectAllFiles;
 window.acceptFile = acceptFile;
 window.rejectFile = rejectFile;
 
-// Setup download all and reject all button handlers
+// Setup download all and reject all button handlers using event delegation
+let buttonHandlersSetup = false;
+
 function setupDownloadAllButton() {
-    const downloadAllBtn = document.getElementById('download-all-btn');
-    const rejectAllBtn = document.getElementById('reject-all-btn');
+    // Use event delegation on the connected-view container
+    const connectedView = document.getElementById('connected-view');
+    if (!connectedView || buttonHandlersSetup) {
+        return;
+    }
     
-    if (downloadAllBtn) {
-        // Remove existing listeners and add new one
-        const newBtn = downloadAllBtn.cloneNode(true);
-        downloadAllBtn.parentNode.replaceChild(newBtn, downloadAllBtn);
-        newBtn.addEventListener('click', () => {
+    // Use event delegation to handle clicks on buttons
+    connectedView.addEventListener('click', (e) => {
+        if (e.target.id === 'download-all-btn' || e.target.closest('#download-all-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
             const pendingFiles = receivedFiles.filter(f => !f.downloaded);
-            pendingFiles.forEach(file => {
-                acceptFile(file.id.toString());
-            });
-        });
-    }
+            if (pendingFiles.length > 0) {
+                pendingFiles.forEach(file => {
+                    acceptFile(file.id.toString());
+                });
+            }
+        }
+        
+        if (e.target.id === 'reject-all-btn' || e.target.closest('#reject-all-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+            if (pendingFiles.length > 0) {
+                rejectAllFiles();
+            }
+        }
+    });
     
-    if (rejectAllBtn) {
-        // Remove existing listeners and add new one
-        const newBtn = rejectAllBtn.cloneNode(true);
-        rejectAllBtn.parentNode.replaceChild(newBtn, rejectAllBtn);
-        newBtn.addEventListener('click', () => {
-            rejectAllFiles();
-        });
-    }
+    buttonHandlersSetup = true;
 }
 
 // Setup when DOM is ready
