@@ -18,12 +18,6 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('scanner-view').classList.add('hidden');
         document.getElementById('connecting-view').classList.remove('hidden');
         
-        // Wait for socket to connect before joining
-        socket.on('connect', () => {
-            console.log('Socket connected, joining session:', sessionId);
-            socket.emit('mobile_join', { session_id: sessionId });
-        });
-        
         // If already connected, join immediately
         if (socket.connected) {
             console.log('Socket already connected, joining session:', sessionId);
