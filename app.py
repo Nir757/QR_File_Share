@@ -124,15 +124,28 @@ def handle_pc_join(data):
 @socketio.on('mobile_join')
 def handle_mobile_join(data):
     session_id = data.get('session_id')
-    if session_id in sessions:
-        join_room(session_id)
-        sessions[session_id]['mobile_connected'] = True
-        sessions[session_id]['mobile_sid'] = request.sid
-        emit('mobile_ready', {'session_id': session_id})
-        
-        # If PC is already connected, notify both
-        if sessions[session_id]['pc_connected']:
-            emit('peer_connected', room=session_id)
+    print(f'Mobile join request for session: {session_id}')
+    
+    if not session_id:
+        print('No session_id provided')
+        emit('error', {'message': 'No session ID provided'})
+        return
+    
+    if session_id not in sessions:
+        print(f'Session {session_id} not found')
+        emit('error', {'message': 'Session not found. Please scan the QR code again.'})
+        return
+    
+    join_room(session_id)
+    sessions[session_id]['mobile_connected'] = True
+    sessions[session_id]['mobile_sid'] = request.sid
+    emit('mobile_ready', {'session_id': session_id})
+    print(f'Mobile connected to session {session_id}')
+    
+    # If PC is already connected, notify both
+    if sessions[session_id]['pc_connected']:
+        print(f'PC already connected, notifying both peers')
+        emit('peer_connected', room=session_id)
 
 @socketio.on('webrtc_offer')
 def handle_webrtc_offer(data):

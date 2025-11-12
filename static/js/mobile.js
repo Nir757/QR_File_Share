@@ -9,10 +9,6 @@ let receivedFiles = [];
 const urlParams = new URLSearchParams(window.location.search);
 sessionId = urlParams.get('session');
 
-if (!sessionId) {
-    alert('No session ID found. Please scan the QR code again.');
-}
-
 window.addEventListener('DOMContentLoaded', () => {
     setupSocketListeners();
     setupFileHandlers();
@@ -21,17 +17,54 @@ window.addEventListener('DOMContentLoaded', () => {
         // Hide scanner, show connecting state
         document.getElementById('scanner-view').classList.add('hidden');
         document.getElementById('connecting-view').classList.remove('hidden');
-        socket.emit('mobile_join', { session_id: sessionId });
+        
+        // Wait for socket to connect before joining
+        socket.on('connect', () => {
+            console.log('Socket connected, joining session:', sessionId);
+            socket.emit('mobile_join', { session_id: sessionId });
+        });
+        
+        // If already connected, join immediately
+        if (socket.connected) {
+            console.log('Socket already connected, joining session:', sessionId);
+            socket.emit('mobile_join', { session_id: sessionId });
+        }
+    } else {
+        // No session ID - show scanner
+        console.log('No session ID in URL, showing scanner');
     }
 });
 
 function setupSocketListeners() {
+    socket.on('connect', () => {
+        console.log('Socket connected');
+        // If we have a session ID, try to join
+        if (sessionId) {
+            socket.emit('mobile_join', { session_id: sessionId });
+        }
+    });
+    
+    socket.on('mobile_ready', (data) => {
+        console.log('Mobile ready, session:', data.session_id);
+    });
+    
     socket.on('peer_connected', () => {
+        console.log('Peer connected!');
         document.getElementById('scanner-view').classList.add('hidden');
         document.getElementById('connecting-view').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
         // setupFileInputHandlers() will be called when data channel opens
+    });
+    
+    socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        document.getElementById('connecting-view').innerHTML = `
+            <div style="color: #d32f2f; padding: 20px;">
+                <h3>Connection Error</h3>
+                <p>Failed to connect to server. Please check your network connection.</p>
+            </div>
+        `;
     });
     
     socket.on('webrtc_offer', async (data) => {
@@ -81,15 +114,24 @@ function startScanner() {
 
 function handleQRCode(result) {
     const url = result.data;
-    const urlObj = new URL(url);
-    const newSessionId = urlObj.searchParams.get('session');
     
-    if (newSessionId) {
-        sessionId = newSessionId;
-        qrScanner.stop();
-        qrScanner.destroy();
-        document.getElementById('qr-video').classList.add('hidden');
-        socket.emit('mobile_join', { session_id: sessionId });
+    try {
+        const urlObj = new URL(url);
+        const newSessionId = urlObj.searchParams.get('session');
+        
+        if (newSessionId) {
+            // Stop scanner
+            qrScanner.stop();
+            qrScanner.destroy();
+            
+            // Navigate to the URL to ensure proper page load with session ID
+            window.location.href = url;
+        } else {
+            alert('Invalid QR code. Please scan the QR code from your computer.');
+        }
+    } catch (error) {
+        console.error('Error parsing QR code URL:', error);
+        alert('Invalid QR code format. Please scan again.');
     }
 }
 
