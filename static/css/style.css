@@ -279,6 +279,18 @@ h1 {
     font-weight: 500;
 }
 
+.file-item .file-error-detail {
+    color: #d32f2f;
+    font-size: 0.8em;
+    margin-top: 8px;
+    padding: 8px;
+    background: #ffebee;
+    border-left: 3px solid #f44336;
+    border-radius: 4px;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
 .file-item .file-progress {
     width: 100%;
     height: 6px;

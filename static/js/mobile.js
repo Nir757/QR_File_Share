@@ -7,8 +7,11 @@ let receivedFiles = [];
 let fileQueue = [];
 let isSendingFile = false;
 let sendingFiles = {}; // Track sending files by name
+let fileErrors = {}; // Store error messages for files
 let queueProcessingTimeout = null;
 let shouldStopQueue = false;
+let receivingChunks = {}; // Track file chunks being received {fileId: {chunks: [], totalChunks, fileName, fileSize, fileType}}
+const CHUNK_SIZE = 200 * 1024; // 200KB chunks (safe for WebRTC)
 
 // Get session ID from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -371,9 +374,25 @@ function setupDataChannel() {
             console.log('Received message on data channel, size:', event.data.length);
             const data = JSON.parse(event.data);
             console.log('Parsed data, type:', data.type);
+            
             if (data.type === 'file') {
+                // Single message file (small files)
                 console.log('Receiving file:', data.name, 'Size:', data.size);
                 receiveFile(data);
+            } else if (data.type === 'file_start') {
+                // Start of chunked file transfer
+                console.log('Starting chunked file transfer:', data.fileName, 'Total chunks:', data.totalChunks);
+                receivingChunks[data.fileId] = {
+                    chunks: new Array(data.totalChunks),
+                    totalChunks: data.totalChunks,
+                    fileName: data.fileName,
+                    fileSize: data.fileSize,
+                    fileType: data.fileType,
+                    receivedChunks: 0
+                };
+            } else if (data.type === 'file_chunk') {
+                // Receiving a chunk
+                handleFileChunk(data);
             } else {
                 console.warn('Unknown message type:', data.type);
             }
@@ -389,6 +408,41 @@ function setupDataChannel() {
     dataChannel.onerror = (error) => {
         console.error('Data channel error:', error);
     };
+}
+
+function handleFileChunk(chunkData) {
+    const fileId = chunkData.fileId;
+    const chunkInfo = receivingChunks[fileId];
+    
+    if (!chunkInfo) {
+        console.error('Received chunk for unknown file:', fileId);
+        return;
+    }
+    
+    // Store chunk
+    chunkInfo.chunks[chunkData.chunkIndex] = chunkData.data;
+    chunkInfo.receivedChunks++;
+    
+    console.log(`Received chunk ${chunkData.chunkIndex + 1}/${chunkData.totalChunks} for file ${chunkInfo.fileName}`);
+    
+    // Check if all chunks received
+    if (chunkInfo.receivedChunks === chunkInfo.totalChunks) {
+        // Reassemble file
+        const completeData = chunkInfo.chunks.join('');
+        
+        const fileData = {
+            name: chunkInfo.fileName,
+            size: chunkInfo.fileSize,
+            fileType: chunkInfo.fileType,
+            data: completeData
+        };
+        
+        console.log(`All chunks received for ${chunkInfo.fileName}, reassembling...`);
+        receiveFile(fileData);
+        
+        // Clean up
+        delete receivingChunks[fileId];
+    }
 }
 
 function receiveFile(data) {
@@ -673,7 +727,7 @@ function cancelQueue() {
     // Clear the queue
     const cancelledCount = fileQueue.length;
     fileQueue.forEach(file => {
-        updateFileStatus(file.name, 'error');
+        updateFileStatus(file.name, 'error', 'Cancelled by user');
     });
     fileQueue = [];
     
@@ -783,7 +837,8 @@ async function processFileQueue() {
         console.log('File sent successfully:', file.name);
     } catch (error) {
         console.error('Error sending file:', error);
-        updateFileStatus(file.name, 'error');
+        const errorMsg = error.message || error.toString() || 'Unknown error occurred';
+        updateFileStatus(file.name, 'error', errorMsg);
     } finally {
         isSendingFile = false;
         
@@ -803,7 +858,7 @@ async function sendFile(file) {
     return new Promise((resolve, reject) => {
         if (!dataChannel) {
             const error = new Error('Connection not ready. Please wait for the connection to establish...');
-            updateFileStatus(file.name, 'error');
+            updateFileStatus(file.name, 'error', error.message);
             reject(error);
             return;
         }
@@ -811,7 +866,7 @@ async function sendFile(file) {
         if (dataChannel.readyState !== 'open') {
             const error = new Error('Data channel not ready. Please wait a moment and try again.');
             console.log('Data channel state:', dataChannel.readyState);
-            updateFileStatus(file.name, 'error');
+            updateFileStatus(file.name, 'error', error.message);
             reject(error);
             return;
         }
@@ -824,7 +879,8 @@ async function sendFile(file) {
         const reader = new FileReader();
         reader.onerror = (error) => {
             console.error('FileReader error:', error);
-            updateFileStatus(file.name, 'error');
+            const errorMsg = error.message || 'Failed to read file';
+            updateFileStatus(file.name, 'error', errorMsg);
             isSendingFile = false;
             reject(error);
         };
@@ -864,44 +920,52 @@ async function sendFile(file) {
                     console.warn('Buffer wait timeout for file:', file.name, 'bufferedAmount:', dataChannel.bufferedAmount);
                 }
                 
-                // Stringify and send
-                console.log('Stringifying file data for:', file.name);
-                const jsonString = JSON.stringify(fileData);
-                console.log('JSON string length:', Math.round(jsonString.length / 1024), 'KB');
+                // Check if file needs chunking
+                const base64Length = base64.length;
+                const estimatedJsonSize = base64Length + 500; // Add overhead for JSON structure
                 
-                // Check if message is too large (WebRTC typically limits to 64KB-256KB)
-                if (jsonString.length > 256 * 1024) { // 256KB limit
-                    console.error('File too large to send in one message:', file.name, Math.round(jsonString.length / 1024), 'KB');
-                    updateFileStatus(file.name, 'error');
-                    reject(new Error(`File too large (${Math.round(jsonString.length / 1024)}KB). Maximum size is approximately 200KB.`));
-                    return;
-                }
-                
-                // Send file - ensure data channel is still open
-                if (dataChannel.readyState !== 'open') {
-                    reject(new Error('Data channel closed during send'));
-                    return;
-                }
-                
-                try {
-                    dataChannel.send(jsonString);
-                    console.log('File sent successfully:', file.name, 'Size:', file.size, 'JSON size:', Math.round(jsonString.length / 1024), 'KB');
-                    
-                    // Small delay to ensure message is queued
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    
-                    // Update status to sent
+                if (estimatedJsonSize > CHUNK_SIZE) {
+                    // File is too large, send in chunks
+                    console.log(`File ${file.name} is large (${Math.round(estimatedJsonSize / 1024)}KB), sending in chunks`);
+                    await sendFileInChunks(file, base64, fileData);
                     updateFileStatus(file.name, 'sent');
                     resolve();
-                } catch (sendError) {
-                    console.error('Error sending data channel message:', sendError);
-                    updateFileStatus(file.name, 'error');
-                    reject(sendError);
+                } else {
+                    // File is small enough, send normally
+                    console.log('Stringifying file data for:', file.name);
+                    const jsonString = JSON.stringify(fileData);
+                    console.log('JSON string length:', Math.round(jsonString.length / 1024), 'KB');
+                    
+                    // Send file - ensure data channel is still open
+                    if (dataChannel.readyState !== 'open') {
+                        const errorMsg = 'Data channel closed during send';
+                        updateFileStatus(file.name, 'error', errorMsg);
+                        reject(new Error(errorMsg));
+                        return;
+                    }
+                    
+                    try {
+                        dataChannel.send(jsonString);
+                        console.log('File sent successfully:', file.name, 'Size:', file.size, 'JSON size:', Math.round(jsonString.length / 1024), 'KB');
+                        
+                        // Small delay to ensure message is queued
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        // Update status to sent
+                        updateFileStatus(file.name, 'sent');
+                        resolve();
+                    } catch (sendError) {
+                        console.error('Error sending data channel message:', sendError);
+                        const errorMsg = sendError.message || sendError.toString() || 'Failed to send file over data channel';
+                        updateFileStatus(file.name, 'error', errorMsg);
+                        reject(sendError);
+                    }
                 }
             } catch (error) {
-                console.error('Error processing file:', error);
-                updateFileStatus(file.name, 'error');
-                reject(error);
+            console.error('Error processing file:', error);
+            const errorMsg = error.message || error.toString() || 'Unknown error occurred';
+            updateFileStatus(file.name, 'error', errorMsg);
+            reject(error);
             }
         };
         
@@ -911,6 +975,7 @@ async function sendFile(file) {
 
 function displaySendingFile(file, status = 'queued') {
     const container = document.getElementById('file-list');
+    const fileId = file.name.replace(/[^a-zA-Z0-9]/g, '_');
     
     // Check if file already displayed
     if (sendingFiles[file.name]) {
@@ -920,14 +985,15 @@ function displaySendingFile(file, status = 'queued') {
     
     const fileItem = document.createElement('div');
     fileItem.className = 'file-item sending-file';
-    fileItem.id = `sending-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    fileItem.id = `sending-${fileId}`;
     fileItem.innerHTML = `
         <div class="file-info">
             <div class="file-name">${file.name}</div>
             <div class="file-size">${formatFileSize(file.size)}</div>
-            <div class="file-status" id="status-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}">Queued...</div>
+            <div class="file-status" id="status-${fileId}">Queued...</div>
+            <div class="file-error-detail" id="error-detail-${fileId}" style="display: none;"></div>
             <div class="file-progress">
-                <div class="file-progress-bar" id="progress-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}" style="width: 0%"></div>
+                <div class="file-progress-bar" id="progress-${fileId}" style="width: 0%"></div>
             </div>
         </div>
     `;
@@ -936,34 +1002,153 @@ function displaySendingFile(file, status = 'queued') {
     updateFileStatus(file.name, status);
 }
 
-function updateFileStatus(fileName, status) {
-    const statusId = `status-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const progressId = `progress-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+function updateFileStatus(fileName, status, errorMessage = null) {
+    const fileId = fileName.replace(/[^a-zA-Z0-9]/g, '_');
+    const statusId = `status-${fileId}`;
+    const progressId = `progress-${fileId}`;
+    const errorDetailId = `error-detail-${fileId}`;
     const statusEl = document.getElementById(statusId);
     const progressEl = document.getElementById(progressId);
+    const errorDetailEl = document.getElementById(errorDetailId);
     
     if (statusEl) {
         switch(status) {
             case 'queued':
                 statusEl.textContent = 'Queued...';
                 statusEl.style.color = '#ffa726';
+                statusEl.style.cursor = 'default';
+                statusEl.onclick = null;
                 if (progressEl) progressEl.style.width = '10%';
+                if (errorDetailEl) errorDetailEl.style.display = 'none';
                 break;
             case 'sending':
                 statusEl.textContent = 'Sending...';
                 statusEl.style.color = '#667eea';
+                statusEl.style.cursor = 'default';
+                statusEl.onclick = null;
                 if (progressEl) progressEl.style.width = '50%';
+                if (errorDetailEl) errorDetailEl.style.display = 'none';
                 break;
             case 'sent':
                 statusEl.textContent = '✓ Sent';
                 statusEl.style.color = '#4caf50';
+                statusEl.style.cursor = 'default';
+                statusEl.onclick = null;
                 if (progressEl) progressEl.style.width = '100%';
+                if (errorDetailEl) errorDetailEl.style.display = 'none';
                 break;
             case 'error':
-                statusEl.textContent = '✗ Error';
+                statusEl.textContent = '✗ Error (click for details)';
                 statusEl.style.color = '#f44336';
+                statusEl.style.cursor = 'pointer';
+                statusEl.style.textDecoration = 'underline';
                 if (progressEl) progressEl.style.width = '100%';
+                
+                // Store error message
+                if (errorMessage) {
+                    fileErrors[fileName] = errorMessage;
+                }
+                
+                // Make error clickable to expand
+                statusEl.onclick = () => {
+                    toggleErrorDetail(fileName);
+                };
+                
+                // Show error detail if it exists
+                if (errorDetailEl && fileErrors[fileName]) {
+                    errorDetailEl.textContent = fileErrors[fileName];
+                }
                 break;
+        }
+    }
+}
+
+async function sendFileInChunks(file, base64Data, fileMetadata) {
+    const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
+    const fileId = Date.now() + Math.random(); // Unique ID for this file transfer
+    
+    console.log(`Sending file ${file.name} in ${totalChunks} chunks`);
+    
+    // Send file start message
+    const startMessage = {
+        type: 'file_start',
+        fileId: fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        totalChunks: totalChunks
+    };
+    
+    // Wait for buffer
+    while (dataChannel.bufferedAmount > 64 * 1024) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        if (shouldStopQueue) {
+            throw new Error('Queue cancelled by user');
+        }
+    }
+    
+    dataChannel.send(JSON.stringify(startMessage));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Send chunks
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        if (shouldStopQueue) {
+            throw new Error('Queue cancelled by user');
+        }
+        
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, base64Data.length);
+        const chunkData = base64Data.substring(start, end);
+        
+        const chunkMessage = {
+            type: 'file_chunk',
+            fileId: fileId,
+            chunkIndex: chunkIndex,
+            totalChunks: totalChunks,
+            data: chunkData
+        };
+        
+        // Wait for buffer to clear
+        while (dataChannel.bufferedAmount > 64 * 1024) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            if (shouldStopQueue) {
+                throw new Error('Queue cancelled by user');
+            }
+        }
+        
+        dataChannel.send(JSON.stringify(chunkMessage));
+        
+        // Update progress
+        const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+        const fileId_clean = file.name.replace(/[^a-zA-Z0-9]/g, '_');
+        const progressEl = document.getElementById(`progress-${fileId_clean}`);
+        if (progressEl) {
+            progressEl.style.width = `${progress}%`;
+        }
+        
+        // Small delay between chunks
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    console.log(`File ${file.name} sent successfully in ${totalChunks} chunks`);
+}
+
+function toggleErrorDetail(fileName) {
+    const fileId = fileName.replace(/[^a-zA-Z0-9]/g, '_');
+    const errorDetailEl = document.getElementById(`error-detail-${fileId}`);
+    const statusEl = document.getElementById(`status-${fileId}`);
+    
+    if (errorDetailEl && fileErrors[fileName]) {
+        if (errorDetailEl.style.display === 'none' || !errorDetailEl.style.display) {
+            errorDetailEl.style.display = 'block';
+            if (statusEl) {
+                statusEl.textContent = '✗ Error (click to hide)';
+            }
+        } else {
+            errorDetailEl.style.display = 'none';
+            if (statusEl) {
+                statusEl.textContent = '✗ Error (click for details)';
+            }
         }
     }
 }
