@@ -259,6 +259,7 @@ function updateFileItemUI(fileId, accepted) {
 
 function updateDownloadAllButton() {
     const downloadAllBtn = document.getElementById('download-all-btn');
+    const rejectAllBtn = document.getElementById('reject-all-btn');
     const pendingFiles = receivedFiles.filter(f => !f.downloaded);
     
     if (pendingFiles.length > 0) {
@@ -266,9 +267,16 @@ function updateDownloadAllButton() {
             downloadAllBtn.style.display = 'inline-block';
             downloadAllBtn.textContent = `Download All (${pendingFiles.length})`;
         }
+        if (rejectAllBtn) {
+            rejectAllBtn.style.display = 'inline-block';
+            rejectAllBtn.textContent = `Reject All (${pendingFiles.length})`;
+        }
     } else {
         if (downloadAllBtn) {
             downloadAllBtn.style.display = 'none';
+        }
+        if (rejectAllBtn) {
+            rejectAllBtn.style.display = 'none';
         }
     }
     
@@ -280,6 +288,16 @@ function updateDownloadAllButton() {
         noFilesMsg.style.display = 'none';
     }
 }
+
+function rejectAllFiles() {
+    const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+    pendingFiles.forEach(file => {
+        rejectFile(file.id.toString());
+    });
+}
+
+// Make rejectAllFiles globally accessible
+window.rejectAllFiles = rejectAllFiles;
 
 // Make functions globally accessible
 window.acceptFile = acceptFile;
