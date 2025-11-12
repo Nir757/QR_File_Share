@@ -18,9 +18,18 @@ A web-based file sharing application that allows you to share files between your
 3. **Connection**: The devices establish a WebRTC connection through a signaling server
 4. **File Sharing**: Both devices can send and receive files instantly
 
-## Installation
+## Quick Start
 
-### PC Setup (One-time)
+### Step 1: Clone or Download
+
+```bash
+git clone https://github.com/Nir757/QR_File_Share.git
+cd QR_File_Share
+```
+
+Or download the ZIP file from GitHub and extract it.
+
+### Step 2: Run the Launcher (Easiest Method)
 
 **Windows Users:**
 - Double-click `launcher.bat` - it will automatically install requirements on first launch!
@@ -33,11 +42,17 @@ The launcher will:
 - ✅ Open the app in your browser automatically
 - ✅ Skip installation on subsequent launches (just opens the app)
 
-**Note:** The PC needs Python installed. The mobile device needs nothing - just a web browser!
+**Note:** You need Python 3.7+ installed on your PC. The mobile device needs nothing - just a web browser!
 
-### Manual PC Setup (Alternative)
+### Step 3: Use the App
 
-If you prefer manual setup:
+1. **On PC**: The browser will open automatically showing a QR code
+2. **On Mobile**: Scan the QR code with your phone's camera
+3. **Share Files**: Drag & drop files or click to browse, then send!
+
+### Manual Setup (Alternative)
+
+If you prefer manual setup instead of using the launcher:
 
 1. Install Python dependencies:
 ```bash
@@ -49,9 +64,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### Mobile Setup
-
-**No installation needed!** Just scan the QR code with your phone's camera when the PC app is running.
+3. Open your browser and go to `http://localhost:5000`
 
 ## Usage
 
