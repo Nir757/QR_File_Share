@@ -48,6 +48,8 @@ function setupSocketListeners() {
         document.getElementById('connecting-view').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
+        // Setup button handlers when connected view is shown
+        setupDownloadAllButton();
         // setupFileInputHandlers() will be called when data channel opens
     });
     
@@ -313,29 +315,41 @@ window.rejectFile = rejectFile;
 
 // Setup download all and reject all button handlers
 function setupDownloadAllButton() {
-    const downloadAllBtn = document.getElementById('download-all-btn');
-    const rejectAllBtn = document.getElementById('reject-all-btn');
-    
-    if (downloadAllBtn) {
-        // Remove existing listeners and add new one
-        const newBtn = downloadAllBtn.cloneNode(true);
-        downloadAllBtn.parentNode.replaceChild(newBtn, downloadAllBtn);
-        newBtn.addEventListener('click', () => {
-            const pendingFiles = receivedFiles.filter(f => !f.downloaded);
-            pendingFiles.forEach(file => {
-                acceptFile(file.id.toString());
+    // Use event delegation or check if buttons exist
+    setTimeout(() => {
+        const downloadAllBtn = document.getElementById('download-all-btn');
+        const rejectAllBtn = document.getElementById('reject-all-btn');
+        
+        if (downloadAllBtn) {
+            // Remove all existing listeners by cloning
+            const newDownloadBtn = downloadAllBtn.cloneNode(true);
+            downloadAllBtn.parentNode.replaceChild(newDownloadBtn, downloadAllBtn);
+            newDownloadBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Download all clicked');
+                const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+                console.log('Pending files:', pendingFiles.length);
+                pendingFiles.forEach(file => {
+                    acceptFile(file.id.toString());
+                });
             });
-        });
-    }
-    
-    if (rejectAllBtn) {
-        // Remove existing listeners and add new one
-        const newBtn = rejectAllBtn.cloneNode(true);
-        rejectAllBtn.parentNode.replaceChild(newBtn, rejectAllBtn);
-        newBtn.addEventListener('click', () => {
-            rejectAllFiles();
-        });
-    }
+        }
+        
+        if (rejectAllBtn) {
+            // Remove all existing listeners by cloning
+            const newRejectBtn = rejectAllBtn.cloneNode(true);
+            rejectAllBtn.parentNode.replaceChild(newRejectBtn, rejectAllBtn);
+            newRejectBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Reject all clicked');
+                const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+                console.log('Pending files to reject:', pendingFiles.length);
+                rejectAllFiles();
+            });
+        }
+    }, 100);
 }
 
 // Setup when DOM is ready (mobile.js already has DOMContentLoaded, so use it)
