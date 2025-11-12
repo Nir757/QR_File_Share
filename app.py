@@ -6,6 +6,9 @@ import base64
 import uuid
 import os
 import socket
+import webbrowser
+import threading
+import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
@@ -152,6 +155,20 @@ def handle_ice_candidate(data):
     candidate = data.get('candidate')
     socketio.emit('ice_candidate', {'candidate': candidate}, room=session_id, include_self=False)
 
+def open_browser():
+    """Open the browser after a short delay to allow the server to start"""
+    time.sleep(1.5)  # Wait for server to start
+    webbrowser.open('http://127.0.0.1:5000')
+
 if __name__ == '__main__':
+    # Open browser in a separate thread
+    threading.Thread(target=open_browser, daemon=True).start()
+    print("\n" + "="*50)
+    print("QR File Share Server Starting...")
+    print("="*50)
+    print(f"Server will open automatically in your browser")
+    print(f"If it doesn't open, visit: http://127.0.0.1:5000")
+    print(f"Local IP: http://{get_local_ip()}:5000" if get_local_ip() else "Could not determine local IP")
+    print("="*50 + "\n")
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
 
