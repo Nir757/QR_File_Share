@@ -3,6 +3,8 @@ let sessionId = null;
 let peerConnection = null;
 let dataChannel = null;
 let receivedFiles = [];
+let fileQueue = [];
+let isSendingFile = false;
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', async () => {
@@ -349,9 +351,10 @@ function setupFileUpload() {
         const files = e.target.files;
         if (files.length > 0) {
             Array.from(files).forEach(file => {
-                sendFile(file);
+                queueFile(file);
             });
             fileInput.value = ''; // Reset input
+            processFileQueue(); // Start processing queue
         }
     });
     
@@ -376,72 +379,156 @@ function setupFileUpload() {
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             Array.from(files).forEach(file => {
-                sendFile(file);
+                queueFile(file);
             });
+            processFileQueue(); // Start processing queue
         }
     });
 }
 
 
-async function sendFile(file) {
-    if (!dataChannel) {
-        alert('Connection not ready. Please wait for the connection to establish...');
-        return;
-    }
-    
-    if (dataChannel.readyState !== 'open') {
-        alert('Data channel not ready. Please wait a moment and try again.');
-        console.log('Data channel state:', dataChannel.readyState);
-        return;
-    }
-    
-    const reader = new FileReader();
-    reader.onerror = (error) => {
-        console.error('FileReader error:', error);
-        alert('Error reading file. Please try again.');
-    };
-    
-    reader.onload = async (e) => {
-        try {
-            const arrayBuffer = e.target.result;
-            const base64 = arrayBufferToBase64(arrayBuffer);
-            
-            const fileData = {
-                type: 'file',
-                name: file.name,
-                size: file.size,
-                fileType: file.type,
-                data: base64
-            };
-            
-            // Display in file list
-            displaySendingFile(file);
-            
-            // Send file
-            dataChannel.send(JSON.stringify(fileData));
-            console.log('File sent:', file.name);
-        } catch (error) {
-            console.error('Error sending file:', error);
-            alert('Error sending file. Please try again.');
-        }
-    };
-    reader.readAsArrayBuffer(file);
+function queueFile(file) {
+    fileQueue.push(file);
+    displaySendingFile(file, 'queued');
 }
 
-function displaySendingFile(file) {
+async function processFileQueue() {
+    if (isSendingFile || fileQueue.length === 0) {
+        return;
+    }
+    
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+        console.log('Data channel not ready, waiting...');
+        setTimeout(processFileQueue, 500);
+        return;
+    }
+    
+    // Wait for buffer to clear if it's getting full
+    if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold || dataChannel.bufferedAmount > 1024 * 1024) {
+        console.log('Buffer full, waiting...', dataChannel.bufferedAmount);
+        setTimeout(processFileQueue, 100);
+        return;
+    }
+    
+    isSendingFile = true;
+    const file = fileQueue.shift();
+    
+    await sendFile(file);
+    
+    // Small delay between files to prevent buffer overflow
+    setTimeout(() => {
+        isSendingFile = false;
+        processFileQueue(); // Process next file
+    }, 100);
+}
+
+async function sendFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = (error) => {
+            console.error('FileReader error:', error);
+            updateFileStatus(file.name, 'error');
+            isSendingFile = false;
+            reject(error);
+        };
+        
+        reader.onload = async (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                const base64 = arrayBufferToBase64(arrayBuffer);
+                
+                const fileData = {
+                    type: 'file',
+                    name: file.name,
+                    size: file.size,
+                    fileType: file.type,
+                    data: base64
+                };
+                
+                // Update status to sending
+                updateFileStatus(file.name, 'sending');
+                
+                // Wait for buffer to be ready
+                while (dataChannel.bufferedAmount > 512 * 1024) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                
+                // Send file
+                dataChannel.send(JSON.stringify(fileData));
+                console.log('File sent:', file.name, 'Size:', file.size);
+                
+                // Update status to sent
+                updateFileStatus(file.name, 'sent');
+                resolve();
+            } catch (error) {
+                console.error('Error sending file:', error);
+                updateFileStatus(file.name, 'error');
+                reject(error);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+const sendingFiles = {}; // Track sending files by name
+
+function displaySendingFile(file, status = 'queued') {
     const container = document.getElementById('file-list');
+    
+    // Check if file already displayed
+    if (sendingFiles[file.name]) {
+        updateFileStatus(file.name, status);
+        return;
+    }
+    
     const fileItem = document.createElement('div');
-    fileItem.className = 'file-item';
+    fileItem.className = 'file-item sending-file';
+    fileItem.id = `sending-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
     fileItem.innerHTML = `
         <div class="file-info">
             <div class="file-name">${file.name}</div>
             <div class="file-size">${formatFileSize(file.size)}</div>
+            <div class="file-status" id="status-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}">Queued...</div>
             <div class="file-progress">
-                <div class="file-progress-bar" style="width: 100%"></div>
+                <div class="file-progress-bar" id="progress-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}" style="width: 0%"></div>
             </div>
         </div>
     `;
     container.appendChild(fileItem);
+    sendingFiles[file.name] = fileItem;
+    updateFileStatus(file.name, status);
+}
+
+function updateFileStatus(fileName, status) {
+    const statusId = `status-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const progressId = `progress-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const statusEl = document.getElementById(statusId);
+    const progressEl = document.getElementById(progressId);
+    
+    if (statusEl) {
+        switch(status) {
+            case 'queued':
+                statusEl.textContent = 'Queued...';
+                statusEl.style.color = '#ffa726';
+                if (progressEl) progressEl.style.width = '10%';
+                break;
+            case 'sending':
+                statusEl.textContent = 'Sending...';
+                statusEl.style.color = '#667eea';
+                if (progressEl) progressEl.style.width = '50%';
+                break;
+            case 'sent':
+                statusEl.textContent = '✓ Sent';
+                statusEl.style.color = '#4caf50';
+                if (progressEl) progressEl.style.width = '100%';
+                break;
+            case 'error':
+                statusEl.textContent = '✗ Error';
+                statusEl.style.color = '#f44336';
+                if (progressEl) progressEl.style.width = '100%';
+                break;
+        }
+    }
 }
 
 function arrayBufferToBase64(buffer) {

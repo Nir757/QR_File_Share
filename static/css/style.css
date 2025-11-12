@@ -253,6 +253,13 @@ h1 {
     font-size: 0.9em;
 }
 
+.file-item .file-status {
+    color: #666;
+    font-size: 0.85em;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
 .file-item .file-progress {
     width: 100%;
     height: 6px;
