@@ -130,6 +130,13 @@ h1 {
     margin-bottom: 15px;
     cursor: pointer;
     background: #f9f9f9;
+    font-size: 16px; /* Prevents zoom on iOS */
+    -webkit-tap-highlight-color: transparent;
+}
+
+#file-input:active {
+    border-color: #667eea;
+    background: #f0f0ff;
 }
 
 #file-input:hover {

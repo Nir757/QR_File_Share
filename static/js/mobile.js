@@ -31,6 +31,8 @@ function setupSocketListeners() {
         document.getElementById('connecting-view').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
+        // Setup file handlers after connection is established
+        setupFileInputHandlers();
     });
     
     socket.on('webrtc_offer', async (data) => {
@@ -200,15 +202,42 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// File sending
-document.getElementById('send-btn').addEventListener('click', () => {
+// File sending handlers
+function setupFileInputHandlers() {
     const fileInput = document.getElementById('file-input');
-    if (fileInput.files.length > 0) {
-        Array.from(fileInput.files).forEach(file => {
-            sendFile(file);
-        });
+    const sendBtn = document.getElementById('send-btn');
+    
+    if (!fileInput || !sendBtn) {
+        console.error('File input or send button not found');
+        return;
     }
-});
+    
+    // Handle file selection - send immediately on mobile
+    fileInput.addEventListener('change', (e) => {
+        const files = e.target.files;
+        if (files.length > 0) {
+            Array.from(files).forEach(file => {
+                sendFile(file);
+            });
+            // Clear the input so the same file can be selected again
+            fileInput.value = '';
+        }
+    });
+    
+    // Also handle button click for manual trigger
+    sendBtn.addEventListener('click', () => {
+        const files = fileInput.files;
+        if (files.length > 0) {
+            Array.from(files).forEach(file => {
+                sendFile(file);
+            });
+            fileInput.value = '';
+        } else {
+            // Trigger file picker if no files selected
+            fileInput.click();
+        }
+    });
+}
 
 async function sendFile(file) {
     if (!dataChannel || dataChannel.readyState !== 'open') {
