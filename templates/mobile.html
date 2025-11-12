@@ -42,9 +42,12 @@
                 </div>
                 
                 <div class="file-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                         <h3 style="margin: 0;">Received Files</h3>
-                        <button id="download-all-btn" class="btn-secondary" style="display: none;">Download All</button>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button id="reject-all-btn" class="btn-reject-all" style="display: none;">Reject All</button>
+                            <button id="download-all-btn" class="btn-secondary" style="display: none;">Download All</button>
+                        </div>
                     </div>
                     <div id="received-files" class="file-list"></div>
                     <div id="no-files-message" class="no-files-message" style="text-align: center; color: #999; padding: 20px;">

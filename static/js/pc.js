@@ -138,6 +138,18 @@ function setupDataChannel() {
         console.log('Data channel opened');
         // Setup file upload handlers once data channel is ready
         setupFileUpload();
+        // Start processing queue if there are files waiting
+        if (fileQueue.length > 0) {
+            processFileQueue();
+        }
+    };
+    
+    // Monitor bufferedAmount to help with queue processing
+    dataChannel.onbufferedamountlow = () => {
+        console.log('Buffer cleared, processing queue');
+        if (fileQueue.length > 0 && !isSendingFile) {
+            processFileQueue();
+        }
     };
     
     dataChannel.onmessage = (event) => {
@@ -273,9 +285,11 @@ function updateDownloadAllButton() {
 window.acceptFile = acceptFile;
 window.rejectFile = rejectFile;
 
-// Setup download all button handler
+// Setup download all and reject all button handlers
 function setupDownloadAllButton() {
     const downloadAllBtn = document.getElementById('download-all-btn');
+    const rejectAllBtn = document.getElementById('reject-all-btn');
+    
     if (downloadAllBtn) {
         // Remove existing listeners and add new one
         const newBtn = downloadAllBtn.cloneNode(true);
@@ -285,6 +299,15 @@ function setupDownloadAllButton() {
             pendingFiles.forEach(file => {
                 acceptFile(file.id.toString());
             });
+        });
+    }
+    
+    if (rejectAllBtn) {
+        // Remove existing listeners and add new one
+        const newBtn = rejectAllBtn.cloneNode(true);
+        rejectAllBtn.parentNode.replaceChild(newBtn, rejectAllBtn);
+        newBtn.addEventListener('click', () => {
+            rejectAllFiles();
         });
     }
 }
@@ -397,15 +420,22 @@ async function processFileQueue() {
         return;
     }
     
-    if (!dataChannel || dataChannel.readyState !== 'open') {
-        console.log('Data channel not ready, waiting...');
+    if (!dataChannel) {
+        console.log('Data channel not initialized, waiting...');
+        setTimeout(processFileQueue, 500);
+        return;
+    }
+    
+    if (dataChannel.readyState !== 'open') {
+        console.log('Data channel not ready, state:', dataChannel.readyState, 'waiting...');
         setTimeout(processFileQueue, 500);
         return;
     }
     
     // Wait for buffer to clear if it's getting full
-    if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold || dataChannel.bufferedAmount > 1024 * 1024) {
-        console.log('Buffer full, waiting...', dataChannel.bufferedAmount);
+    const bufferThreshold = dataChannel.bufferedAmountLowThreshold || 256 * 1024;
+    if (dataChannel.bufferedAmount > bufferThreshold || dataChannel.bufferedAmount > 1024 * 1024) {
+        console.log('Buffer full, waiting...', dataChannel.bufferedAmount, 'bytes');
         setTimeout(processFileQueue, 100);
         return;
     }
@@ -413,7 +443,12 @@ async function processFileQueue() {
     isSendingFile = true;
     const file = fileQueue.shift();
     
-    await sendFile(file);
+    try {
+        await sendFile(file);
+    } catch (error) {
+        console.error('Error sending file:', error);
+        updateFileStatus(file.name, 'error');
+    }
     
     // Small delay between files to prevent buffer overflow
     setTimeout(() => {

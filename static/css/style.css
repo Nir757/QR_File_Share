@@ -234,7 +234,14 @@ h1 {
     margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.file-item .file-info {
+    flex: 1;
+    min-width: 0; /* Allows text to wrap */
 }
 
 .file-item .file-info {
@@ -246,6 +253,9 @@ h1 {
     font-weight: 600;
     color: #333;
     margin-bottom: 5px;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .file-item .file-size {
@@ -289,6 +299,29 @@ h1 {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-shrink: 0;
+}
+
+.btn-reject-all {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+
+.btn-reject-all:hover {
+    background: #da190b;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.btn-reject-all:active {
+    transform: translateY(0);
 }
 
 .btn-accept {

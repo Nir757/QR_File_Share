@@ -267,6 +267,7 @@ function updateFileItemUI(fileId, accepted) {
 
 function updateDownloadAllButton() {
     const downloadAllBtn = document.getElementById('download-all-btn');
+    const rejectAllBtn = document.getElementById('reject-all-btn');
     const pendingFiles = receivedFiles.filter(f => !f.downloaded);
     
     if (pendingFiles.length > 0) {
@@ -274,9 +275,16 @@ function updateDownloadAllButton() {
             downloadAllBtn.style.display = 'inline-block';
             downloadAllBtn.textContent = `Download All (${pendingFiles.length})`;
         }
+        if (rejectAllBtn) {
+            rejectAllBtn.style.display = 'inline-block';
+            rejectAllBtn.textContent = `Reject All (${pendingFiles.length})`;
+        }
     } else {
         if (downloadAllBtn) {
             downloadAllBtn.style.display = 'none';
+        }
+        if (rejectAllBtn) {
+            rejectAllBtn.style.display = 'none';
         }
     }
     
@@ -289,13 +297,25 @@ function updateDownloadAllButton() {
     }
 }
 
+function rejectAllFiles() {
+    const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+    pendingFiles.forEach(file => {
+        rejectFile(file.id.toString());
+    });
+}
+
+// Make rejectAllFiles globally accessible
+window.rejectAllFiles = rejectAllFiles;
+
 // Make functions globally accessible
 window.acceptFile = acceptFile;
 window.rejectFile = rejectFile;
 
-// Setup download all button handler
+// Setup download all and reject all button handlers
 function setupDownloadAllButton() {
     const downloadAllBtn = document.getElementById('download-all-btn');
+    const rejectAllBtn = document.getElementById('reject-all-btn');
+    
     if (downloadAllBtn) {
         // Remove existing listeners and add new one
         const newBtn = downloadAllBtn.cloneNode(true);
@@ -305,6 +325,15 @@ function setupDownloadAllButton() {
             pendingFiles.forEach(file => {
                 acceptFile(file.id.toString());
             });
+        });
+    }
+    
+    if (rejectAllBtn) {
+        // Remove existing listeners and add new one
+        const newBtn = rejectAllBtn.cloneNode(true);
+        rejectAllBtn.parentNode.replaceChild(newBtn, rejectAllBtn);
+        newBtn.addEventListener('click', () => {
+            rejectAllFiles();
         });
     }
 }
