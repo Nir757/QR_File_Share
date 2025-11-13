@@ -204,6 +204,21 @@ function initializeWebRTC() {
     
     peerConnection = new RTCPeerConnection(configuration);
     
+    // Monitor connection state
+    peerConnection.onconnectionstatechange = () => {
+        console.log('Peer connection state:', peerConnection.connectionState);
+        if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
+            console.error('❌ Peer connection failed or disconnected');
+        }
+    };
+    
+    peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'failed') {
+            console.error('❌ ICE connection failed');
+        }
+    };
+    
     // Create data channel for file transfer
     dataChannel = peerConnection.createDataChannel('files', { ordered: true });
     setupDataChannel();
@@ -260,12 +275,29 @@ async function handleOffer(offer) {
 }
 
 function setupDataChannel() {
+    if (!dataChannel) {
+        console.error('setupDataChannel called but dataChannel is null');
+        return;
+    }
+    
+    console.log('Setting up data channel, current state:', dataChannel.readyState);
+    
+    // If channel is already open, process queue immediately
+    if (dataChannel.readyState === 'open') {
+        console.log('Data channel already open');
+        setupFileUpload();
+        if (fileQueue.length > 0) {
+            processFileQueue();
+        }
+    }
+    
     dataChannel.onopen = () => {
-        console.log('Data channel opened');
+        console.log('✅ Data channel opened successfully');
         // Setup file upload handlers once data channel is ready
         setupFileUpload();
         // Start processing queue if there are files waiting
         if (fileQueue.length > 0) {
+            console.log(`Processing ${fileQueue.length} queued files`);
             processFileQueue();
         }
     };
@@ -804,14 +836,32 @@ async function processFileQueue() {
     }
     
     if (!dataChannel) {
-        console.log('Data channel not initialized, waiting...');
+        console.warn('⚠️  Data channel not initialized, waiting...');
         if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
         queueProcessingTimeout = setTimeout(processFileQueue, 500);
         return;
     }
     
     if (dataChannel.readyState !== 'open') {
-        console.log('Data channel not ready, state:', dataChannel.readyState, 'waiting...');
+        const stateNames = {
+            'connecting': 'Connecting',
+            'open': 'Open',
+            'closing': 'Closing',
+            'closed': 'Closed'
+        };
+        const stateName = stateNames[dataChannel.readyState] || dataChannel.readyState;
+        console.warn(`⚠️  Data channel not ready, state: ${stateName} (${dataChannel.readyState}), waiting...`);
+        
+        // If closed or closing, don't keep retrying - show error
+        if (dataChannel.readyState === 'closed' || dataChannel.readyState === 'closing') {
+            console.error('❌ Data channel is closed/closing. Connection may be lost.');
+            if (fileQueue.length > 0) {
+                const file = fileQueue[0];
+                updateFileStatus(file.name, 'error', 'Connection lost - data channel closed');
+            }
+            return;
+        }
+        
         if (queueProcessingTimeout) clearTimeout(queueProcessingTimeout);
         queueProcessingTimeout = setTimeout(processFileQueue, 500);
         return;

@@ -60,25 +60,64 @@ else:
 sessions = {}
 
 def get_local_ip():
-    """Get the local IP address of this machine"""
+    """Get the local IP address of this machine - returns list of all non-loopback IPs"""
+    ips = []
     try:
-        # Connect to a remote address to determine local IP
-        # This doesn't actually send data, just determines the route
+        # Method 1: Connect to remote address to get primary interface IP
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
-        return ip
+        if ip and not ip.startswith("127."):
+            ips.append(ip)
     except Exception:
-        # Fallback: try to get hostname IP
+        pass
+    
+    try:
+        # Method 2: Get all network interfaces (Windows/Linux compatible)
+        import platform
+        if platform.system() == 'Windows':
+            import subprocess
+            result = subprocess.run(['ipconfig'], capture_output=True, text=True, timeout=5)
+            for line in result.stdout.split('\n'):
+                if 'IPv4 Address' in line or 'IPv4' in line:
+                    parts = line.split(':')
+                    if len(parts) > 1:
+                        ip = parts[1].strip().split()[0]
+                        if ip and not ip.startswith("127.") and ip not in ips:
+                            ips.append(ip)
+        else:
+            # Linux/Mac - use netifaces if available, otherwise fallback
+            try:
+                import netifaces
+                for interface in netifaces.interfaces():
+                    addrs = netifaces.ifaddresses(interface)
+                    if netifaces.AF_INET in addrs:
+                        for addr_info in addrs[netifaces.AF_INET]:
+                            ip = addr_info.get('addr')
+                            if ip and not ip.startswith("127.") and ip not in ips:
+                                ips.append(ip)
+            except ImportError:
+                # Fallback: try hostname
+                hostname = socket.gethostname()
+                ip = socket.gethostbyname(hostname)
+                if ip and not ip.startswith("127.") and ip not in ips:
+                    ips.append(ip)
+    except Exception:
+        pass
+    
+    # Fallback: try hostname IP
+    if not ips:
         try:
             hostname = socket.gethostname()
             ip = socket.gethostbyname(hostname)
-            if ip.startswith("127."):
-                return None
-            return ip
+            if ip and not ip.startswith("127."):
+                ips.append(ip)
         except Exception:
-            return None
+            pass
+    
+    # Return primary IP (first non-127.x.x.x IP found)
+    return ips[0] if ips else None
 
 @app.route('/')
 def index():
@@ -123,6 +162,8 @@ def generate_session():
         if local_ip:
             host_url = f"http://{local_ip}:5000/"
             print(f"Using local IP for QR code: {host_url}")
+            print(f"⚠️  Make sure your phone is on the same WiFi network as this PC")
+            print(f"⚠️  If connection fails, check Windows Firewall allows port 5000")
         else:
             # If we can't get IP, show a message (handled in frontend)
             return jsonify({
