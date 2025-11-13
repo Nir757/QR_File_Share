@@ -248,32 +248,6 @@ if __name__ == '__main__':
     # Get port from environment variable (Railway, Heroku, etc.) or default to 5000
     port = int(os.environ.get('PORT', 5000))
     
-    # Check if we should redirect to Railway instead of running locally
-    # Only check if running locally (not on Railway/Heroku)
-    if not os.environ.get('PORT'):
-        try:
-            from config import RAILWAY_APP_URL, DEFAULT_MODE
-            if DEFAULT_MODE == 'railway' and RAILWAY_APP_URL:
-                print("\n" + "="*50)
-                print("QR File Share")
-                print("="*50)
-                print(f"\n🌐 Cross-Network Mode Enabled")
-                print(f"Opening Railway app: {RAILWAY_APP_URL}")
-                print(f"\n⚠️  Note: You're running app.py directly.")
-                print(f"   For better experience, use: python launcher.py")
-                print(f"\n   To use LAN mode instead:")
-                print(f"   1. Edit config.py and set DEFAULT_MODE = 'local'")
-                print(f"   2. Or click 'Switch to LAN Mode' button in the app")
-                print("\nOpening browser...")
-                time.sleep(1)
-                webbrowser.open(RAILWAY_APP_URL)
-                print("\n✅ Browser opened! The app is running on Railway.")
-                print("You can close this window.\n")
-                input("Press Enter to exit...")
-                sys.exit(0)
-        except ImportError:
-            # config.py not found, continue with local mode
-            pass
     
     # Only open browser if not in reloader subprocess (prevents double opening in debug mode)
     # And only if running locally (not on Railway/Heroku)
