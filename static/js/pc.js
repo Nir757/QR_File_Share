@@ -116,6 +116,10 @@ function initializeSignaling() {
             document.getElementById('qr-container').classList.add('hidden');
             document.getElementById('connected-view').classList.remove('hidden');
             initializeWebRTC();
+            // Setup file upload handlers immediately (they'll be ready when data channel opens)
+            // Reset flag in case of reconnection
+            fileUploadSetup = false;
+            setupFileUpload();
         });
         
         signalingClient.on('webrtc_offer', async (offer) => {
@@ -151,7 +155,10 @@ function setupSocketListeners() {
         document.getElementById('qr-container').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
-        // setupFileUpload() will be called when data channel opens
+        // Setup file upload handlers immediately (they'll be ready when data channel opens)
+        // Reset flag in case of reconnection
+        fileUploadSetup = false;
+        setupFileUpload();
     });
     
     socket.on('webrtc_offer', async (data) => {
@@ -1133,6 +1140,9 @@ function cleanupConnections() {
         clearTimeout(queueProcessingTimeout);
         queueProcessingTimeout = null;
     }
+    
+    // Reset file upload setup flag so handlers can be set up again
+    fileUploadSetup = false;
 }
 
 function setupDisconnectionHandlers() {

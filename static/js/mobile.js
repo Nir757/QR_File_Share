@@ -95,6 +95,10 @@ function initializeSignaling() {
                     changeFolderBtn.style.display = 'none';
                 }
             }
+            // Setup file input handlers immediately (they'll be ready when data channel opens)
+            // Reset flag in case of reconnection
+            fileInputHandlersSetup = false;
+            setupFileInputHandlers();
         });
         
         signalingClient.on('webrtc_offer', async (offer) => {
@@ -166,7 +170,10 @@ function setupSocketListeners() {
                 changeFolderBtn.style.display = 'none';
             }
         }
-        // setupFileInputHandlers() will be called when data channel opens
+        // Setup file input handlers immediately (they'll be ready when data channel opens)
+        // Reset flag in case of reconnection
+        fileInputHandlersSetup = false;
+        setupFileInputHandlers();
     });
     
     socket.on('connect_error', (error) => {
@@ -1613,6 +1620,9 @@ function cleanupConnections() {
         clearTimeout(queueProcessingTimeout);
         queueProcessingTimeout = null;
     }
+    
+    // Reset file input handlers setup flag so handlers can be set up again
+    fileInputHandlersSetup = false;
 }
 
 function setupDisconnectionHandlers() {
