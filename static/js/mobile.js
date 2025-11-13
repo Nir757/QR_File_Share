@@ -532,6 +532,13 @@ function initializeWebRTC() {
         
         if (state === 'failed' || state === 'disconnected') {
             console.error('❌ Peer connection failed or disconnected');
+            // Stop queue processing immediately
+            shouldStopQueue = true;
+            isSendingFile = false;
+            if (queueProcessingTimeout) {
+                clearTimeout(queueProcessingTimeout);
+                queueProcessingTimeout = null;
+            }
             // Clear file queue and show error
             if (fileQueue.length > 0) {
                 fileQueue.forEach(file => {
@@ -543,6 +550,8 @@ function initializeWebRTC() {
             handleDisconnection('WebRTC connection failed. Please try reconnecting.');
         } else if (state === 'connected') {
             console.log('✅ Peer connection established');
+            // Reset stop flag when connection is restored
+            shouldStopQueue = false;
         }
     };
     
@@ -552,10 +561,28 @@ function initializeWebRTC() {
         
         if (iceState === 'failed') {
             console.error('❌ ICE connection failed - may need TURN server or different network');
-            // Try to show helpful error
+            // Stop queue processing
+            shouldStopQueue = true;
+            if (queueProcessingTimeout) {
+                clearTimeout(queueProcessingTimeout);
+                queueProcessingTimeout = null;
+            }
+            // Clear all files in queue and show error
             if (fileQueue.length > 0) {
-                const file = fileQueue[0];
-                updateFileStatus(file.name, 'error', 'Network connection failed. Both devices may be behind strict firewalls.');
+                fileQueue.forEach(file => {
+                    updateFileStatus(file.name, 'error', 'Network connection failed. Both devices may be behind strict firewalls.');
+                });
+                fileQueue = [];
+            }
+            // Show disconnection message
+            handleDisconnection('WebRTC connection failed. ICE negotiation failed - may need TURN server or different network.');
+        } else if (iceState === 'disconnected') {
+            console.warn('⚠️  ICE connection disconnected');
+            // Stop queue processing
+            shouldStopQueue = true;
+            if (queueProcessingTimeout) {
+                clearTimeout(queueProcessingTimeout);
+                queueProcessingTimeout = null;
             }
         } else if (iceState === 'connected' || iceState === 'completed') {
             console.log('✅ ICE connection established');
@@ -1226,8 +1253,31 @@ function updateCancelButton() {
 async function processFileQueue() {
     // Check if queue should be stopped
     if (shouldStopQueue) {
-        console.log('Queue processing stopped by user');
-        shouldStopQueue = false;
+        console.log('Queue processing stopped');
+        return;
+    }
+    
+    // Check if peer connection has failed
+    if (peerConnection && (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected')) {
+        console.error('❌ Cannot process queue - peer connection failed');
+        if (fileQueue.length > 0) {
+            fileQueue.forEach(file => {
+                updateFileStatus(file.name, 'error', 'Connection failed - cannot send files');
+            });
+            fileQueue = [];
+        }
+        return;
+    }
+    
+    // Check if ICE connection has failed
+    if (peerConnection && peerConnection.iceConnectionState === 'failed') {
+        console.error('❌ Cannot process queue - ICE connection failed');
+        if (fileQueue.length > 0) {
+            fileQueue.forEach(file => {
+                updateFileStatus(file.name, 'error', 'Network connection failed');
+            });
+            fileQueue = [];
+        }
         return;
     }
     
@@ -1264,9 +1314,25 @@ async function processFileQueue() {
         // If closed or closing, don't keep retrying - show error
         if (dataChannel.readyState === 'closed' || dataChannel.readyState === 'closing') {
             console.error('❌ Data channel is closed/closing. Connection may be lost.');
+            shouldStopQueue = true;
             if (fileQueue.length > 0) {
-                const file = fileQueue[0];
-                updateFileStatus(file.name, 'error', 'Connection lost - data channel closed');
+                fileQueue.forEach(file => {
+                    updateFileStatus(file.name, 'error', 'Connection lost - data channel closed');
+                });
+                fileQueue = [];
+            }
+            return;
+        }
+        
+        // If peer connection has failed while waiting, stop retrying
+        if (peerConnection && (peerConnection.connectionState === 'failed' || peerConnection.iceConnectionState === 'failed')) {
+            console.error('❌ Peer connection failed while waiting for data channel');
+            shouldStopQueue = true;
+            if (fileQueue.length > 0) {
+                fileQueue.forEach(file => {
+                    updateFileStatus(file.name, 'error', 'Connection failed before data channel could open');
+                });
+                fileQueue = [];
             }
             return;
         }
