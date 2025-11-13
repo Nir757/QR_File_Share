@@ -17,13 +17,28 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # Get signaling server URL from environment variable (for cross-network P2P support)
 # Set this to your Railway signaling server URL, e.g., 'wss://your-app.up.railway.app'
 # Leave empty to use Socket.IO (existing LAN mode)
-SIGNALING_SERVER_URL = os.environ.get('SIGNALING_SERVER_URL', 'wss://qrfileshare-production.up.railway.app')
+_signaling_url_raw = os.environ.get('SIGNALING_SERVER_URL', 'wss://qrfileshare-production.up.railway.app')
+# Clean up if someone accidentally included the variable name in the value
+if 'SIGNALING_SERVER_URL=' in _signaling_url_raw:
+    SIGNALING_SERVER_URL = _signaling_url_raw.split('SIGNALING_SERVER_URL=')[-1].strip()
+    print(f"⚠️  WARNING: SIGNALING_SERVER_URL contained variable name. Cleaned to: {SIGNALING_SERVER_URL}")
+else:
+    SIGNALING_SERVER_URL = _signaling_url_raw
 
 # Public URL for Flask app (for cross-network access)
 # Set this if you deploy Flask app to Railway/Heroku, or use ngrok
 # Example: 'https://your-flask-app.up.railway.app' or 'https://abc123.ngrok.io'
 # Leave empty to use local IP (LAN only)
-PUBLIC_APP_URL = os.environ.get('PUBLIC_APP_URL', '')
+_public_url_raw = os.environ.get('PUBLIC_APP_URL', '')
+# Ensure it has https:// prefix if it's a Railway URL
+if _public_url_raw and not _public_url_raw.startswith('http://') and not _public_url_raw.startswith('https://'):
+    if '.railway.app' in _public_url_raw or '.ngrok.io' in _public_url_raw:
+        PUBLIC_APP_URL = 'https://' + _public_url_raw
+        print(f"⚠️  Added https:// prefix to PUBLIC_APP_URL: {PUBLIC_APP_URL}")
+    else:
+        PUBLIC_APP_URL = _public_url_raw
+else:
+    PUBLIC_APP_URL = _public_url_raw
 
 # Store active sessions
 sessions = {}
