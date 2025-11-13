@@ -183,6 +183,9 @@ function setupSocketListeners() {
     socket.on('peer_connected', () => {
         document.getElementById('qr-container').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
+        // Hide mode switcher button after connection
+        const modeSwitcher = document.querySelector('.mode-switcher');
+        if (modeSwitcher) modeSwitcher.style.display = 'none';
         initializeWebRTC();
         // setupFileUpload() will be called when data channel opens
     });
