@@ -70,13 +70,17 @@ def generate_session():
     session_id = str(uuid.uuid4())
     
     # Get the base URL for QR code
-    # Priority: PUBLIC_APP_URL > local IP > request.host_url
+    # Priority: PUBLIC_APP_URL > Railway URL (from request) > local IP
     if PUBLIC_APP_URL:
-        # Use public URL for cross-network access
+        # Use explicitly set public URL for cross-network access
         host_url = PUBLIC_APP_URL.rstrip('/') + '/'
-        print(f"Using public URL for QR code: {host_url}")
+        print(f"Using PUBLIC_APP_URL for QR code: {host_url}")
+    elif request.host_url.startswith('https://') and '.railway.app' in request.host_url:
+        # Running on Railway - use Railway URL
+        host_url = request.host_url
+        print(f"Using Railway URL from request: {host_url}")
     elif '127.0.0.1' in request.host_url or 'localhost' in request.host_url:
-        # Use local IP for LAN access
+        # Running locally - use local IP for LAN access
         local_ip = get_local_ip()
         if local_ip:
             host_url = f"http://{local_ip}:5000/"
@@ -206,17 +210,29 @@ def open_browser():
     webbrowser.open('http://127.0.0.1:5000')
 
 if __name__ == '__main__':
+    # Get port from environment variable (Railway, Heroku, etc.) or default to 5000
+    port = int(os.environ.get('PORT', 5000))
+    
     # Only open browser if not in reloader subprocess (prevents double opening in debug mode)
-    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+    # And only if running locally (not on Railway/Heroku)
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true' and not os.environ.get('PORT'):
         # Open browser in a separate thread
         threading.Thread(target=open_browser, daemon=True).start()
+    
+    # Debug mode only for local development
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true' and not os.environ.get('PORT')
     
     print("\n" + "="*50)
     print("QR File Share Server Starting...")
     print("="*50)
-    print(f"Server will open automatically in your browser")
-    print(f"If it doesn't open, visit: http://127.0.0.1:5000")
-    print(f"Local IP: http://{get_local_ip()}:5000" if get_local_ip() else "Could not determine local IP")
+    if os.environ.get('PORT'):
+        print(f"Running on Railway/Cloud - Port: {port}")
+        print(f"Public URL will be provided by Railway")
+    else:
+        print(f"Running locally - Port: {port}")
+        print(f"Server will open automatically in your browser")
+        print(f"If it doesn't open, visit: http://127.0.0.1:{port}")
+        print(f"Local IP: http://{get_local_ip()}:{port}" if get_local_ip() else "Could not determine local IP")
     print("="*50 + "\n")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
 
