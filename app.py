@@ -12,6 +12,12 @@ import time
 import sys
 import subprocess
 from pathlib import Path
+try:
+    import msvcrt  # Windows
+except ImportError:
+    import select  # Unix/Linux/Mac
+    import termios
+    import tty
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
@@ -311,7 +317,42 @@ if __name__ == '__main__':
             print("   Set RAILWAY_APP_URL in config.py to enable it.\n")
             choice = '2'  # Force LAN mode if Railway not configured
         else:
-            choice = input("\nEnter choice (1 or 2) [default: 1]: ").strip() or '1'
+            # Auto-select Cross-Network Mode after 5 seconds
+            print("\n⏱️  Auto-selecting Cross-Network Mode in 5 seconds...")
+            print("   (Press any key to choose manually)")
+            
+            choice = None
+            user_input = []
+            
+            def get_input():
+                """Get user input in a separate thread"""
+                try:
+                    user_input.append(input("\nEnter choice (1 or 2): ").strip())
+                except EOFError:
+                    pass
+            
+            # Start input thread
+            input_thread = threading.Thread(target=get_input, daemon=True)
+            input_thread.start()
+            
+            # Countdown with auto-selection
+            for remaining in range(5, 0, -1):
+                if user_input:
+                    choice = user_input[0]
+                    break
+                print(f"   {remaining}...", end='\r', flush=True)
+                time.sleep(1)
+            
+            # If no input received, auto-select Cross-Network Mode
+            if choice is None:
+                choice = '1'
+                print("\n✅ Auto-selected: Cross-Network Mode (1)")
+            else:
+                print()  # New line after countdown
+            
+            # Default to '1' if empty input
+            if not choice:
+                choice = '1'
         
         # Validate choice
         if choice not in ['1', '2']:
