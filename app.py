@@ -10,6 +10,8 @@ import webbrowser
 import threading
 import time
 import sys
+import subprocess
+from pathlib import Path
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
