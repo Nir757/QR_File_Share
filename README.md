@@ -5,7 +5,7 @@ A web-based file sharing application that allows you to share files between your
 ## Features
 
 - 📱 **No Mobile App**: Works entirely in your phone's web browser - no app store download needed
-- 🔗 **Cross-Network**: Share files even when devices are on different networks (via Railway)
+- 🔗 **Cross-Network**: Share files even when devices are on different networks (when configured)
 - 🏠 **LAN Mode**: Fast local network sharing when devices are on the same WiFi
 - 🎨 **Modern UI**: Beautiful, responsive interface
 - ⚡ **Fast**: Uses WebRTC for peer-to-peer file transfer
@@ -15,7 +15,7 @@ A web-based file sharing application that allows you to share files between your
 
 1. **PC Side**: Run the app on your computer - it will display a QR code
 2. **Mobile Side**: Scan the QR code with your phone's camera
-3. **Connection**: The devices establish a WebRTC connection through a signaling server
+3. **Connection**: The devices establish a WebRTC connection
 4. **File Sharing**: Both devices can send and receive files instantly
 
 ## Quick Start
@@ -35,29 +35,27 @@ cd QR_File_Share/qrfileshare
 
 Or download the ZIP file from GitHub and extract it.
 
-### Step 2: Install Dependencies
+### Step 2: Run the App
 
+**Windows Users:**
+- Double-click `launcher.bat` - it will automatically install requirements on first launch!
+
+**Mac/Linux Users:**
 ```bash
 pip install -r requirements.txt
-```
-
-### Step 3: Run the App
-
-```bash
 python app.py
 ```
 
-When running locally, you'll be prompted to choose a mode:
-
-1. **🌐 Cross-Network Mode (Railway)** - Works from anywhere (default, auto-selects after 5 seconds)
-2. **🏠 LAN Mode (Local)** - Same network only
-
 The app will:
+- Install dependencies automatically (Windows) or prompt you to install (Mac/Linux)
+- Prompt you to choose a mode:
+  - **🌐 Cross-Network Mode** - Works from anywhere (requires Railway setup - see [For Developers](#for-developers))
+  - **🏠 LAN Mode** - Same network only (works immediately!)
 - Auto-select Cross-Network Mode after 5 seconds (or press Enter to choose manually)
 - Open your browser automatically
 - Display a QR code for your mobile device to scan
 
-### Step 4: Connect Your Mobile Device
+### Step 3: Connect Your Mobile Device
 
 1. **On Mobile**: Scan the QR code displayed on your PC with your phone's camera
 2. **Allow camera access** when prompted
@@ -80,64 +78,28 @@ The app will:
 3. Tap "Send Files"
 4. PC will receive files automatically
 
-## Configuration
+## Modes
 
-### Cross-Network Mode Setup
+### LAN Mode (Recommended for Local Use)
 
-To use cross-network mode (works from anywhere), you need:
+- Works when both devices are on the same WiFi network
+- No additional setup required
+- Fast and reliable
+- Just select "LAN Mode" when starting the app
 
-1. **Railway Account** (free tier available)
-2. **Deploy the Flask app** to Railway (see [docs/FLASK_RAILWAY_DEPLOYMENT.md](docs/FLASK_RAILWAY_DEPLOYMENT.md))
-3. **Deploy the signaling server** to Railway (see [docs/SIGNALING_SERVER_DEPLOYMENT.md](docs/SIGNALING_SERVER_DEPLOYMENT.md))
-4. **Configure `config.py`**:
-   ```python
-   RAILWAY_APP_URL = 'https://your-app.up.railway.app'
-   ```
+### Cross-Network Mode
 
-### LAN Mode
-
-LAN mode works automatically when both devices are on the same WiFi network. No additional configuration needed!
-
-## Project Structure
-
-```
-qrfileshare/
-├── app.py                 # Main Flask application
-├── config.py              # Configuration (Railway URL, etc.)
-├── requirements.txt       # Python dependencies
-├── railway.json          # Railway deployment config
-├── runtime.txt           # Python version
-├── static/               # Frontend assets
-│   ├── js/              # JavaScript files
-│   ├── css/             # Stylesheets
-│   └── images/          # Images
-├── templates/            # HTML templates
-├── signaling-server/     # Node.js WebSocket signaling server
-└── docs/                 # Documentation
-```
-
-## Documentation
-
-- [Deploy Flask App to Railway](docs/FLASK_RAILWAY_DEPLOYMENT.md)
-- [Deploy Signaling Server to Railway](docs/SIGNALING_SERVER_DEPLOYMENT.md)
-- [P2P Setup Guide](docs/P2P_SETUP.md)
-- [Quick Start P2P](docs/QUICK_START_P2P.md)
-
-## Technical Details
-
-- **Backend**: Flask with Flask-SocketIO for WebSocket signaling
-- **Frontend**: Vanilla JavaScript with WebRTC API
-- **File Transfer**: WebRTC Data Channels for peer-to-peer transfer
-- **QR Code**: Python qrcode library for generation, QR-Scanner.js for scanning
-- **Signaling**: Node.js WebSocket server for cross-network connections
+- Works when devices are on different networks
+- Requires Railway deployment (see [For Developers](#for-developers) section)
+- Set up once, use from anywhere
 
 ## Troubleshooting
 
 ### Connection Issues
 
 - **Can't connect on LAN**: Make sure both devices are on the same WiFi network
-- **Can't connect cross-network**: Check that Railway services are running and URLs are correct in `config.py`
 - **QR code not scanning**: Ensure good lighting and hold phone steady
+- **Connection timeout**: Check your internet connection
 
 ### Port Issues
 
@@ -146,7 +108,6 @@ qrfileshare/
 
 ## Notes
 
-- For production use, change the `SECRET_KEY` in `app.py`
 - The app uses Google's STUN servers for NAT traversal
 - Large files may take time to transfer depending on network speed
 - Both devices need to be connected to the internet (for cross-network mode)
@@ -156,7 +117,14 @@ qrfileshare/
 - Python 3.7+
 - Modern web browser with WebRTC support
 - Camera access on mobile device for QR scanning
-- Node.js 14+ (for signaling server deployment)
+
+## For Developers
+
+If you want to set up cross-network mode or deploy your own instance:
+
+- [Deploy Flask App to Railway](docs/FLASK_RAILWAY_DEPLOYMENT.md)
+- [Deploy Signaling Server to Railway](docs/SIGNALING_SERVER_DEPLOYMENT.md)
+- [P2P Setup Guide](docs/P2P_SETUP.md)
 
 ## License
 
