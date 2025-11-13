@@ -111,6 +111,20 @@
         </div>
     </div>
     
+    <!-- Disconnection Overlay -->
+    <div id="disconnection-overlay" class="disconnection-overlay hidden">
+        <div class="disconnection-modal">
+            <div class="disconnection-icon">⚠️</div>
+            <h2>Connection Lost</h2>
+            <p id="disconnection-message">The PC has disconnected.</p>
+            <div class="disconnection-actions">
+                <button id="reconnect-btn" class="btn-primary">Reconnect</button>
+                <button id="reload-btn" class="btn-secondary">Reload Page</button>
+            </div>
+            <p id="reconnect-countdown" class="reconnect-countdown hidden"></p>
+        </div>
+    </div>
+    
     <script src="{{ url_for('static', filename='js/mobile.js') }}"></script>
 </body>
 </html>

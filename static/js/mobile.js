@@ -112,8 +112,7 @@ function initializeSignaling() {
         });
         
         signalingClient.on('peer_disconnected', () => {
-            alert('PC disconnected');
-            location.reload();
+            handleDisconnection('PC disconnected');
         });
         
         signalingClient.on('error', (error) => {
@@ -195,8 +194,7 @@ function setupSocketListeners() {
     });
     
     socket.on('pc_disconnected', () => {
-        alert('PC disconnected');
-        location.reload();
+        handleDisconnection('PC disconnected');
     });
 }
 
@@ -1408,5 +1406,165 @@ function arrayBufferToBase64(buffer) {
         binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
+}
+
+// Disconnection handling
+let isReconnecting = false;
+let reconnectCountdown = null;
+
+function handleDisconnection(message) {
+    console.log('Disconnection detected:', message);
+    
+    // Clean up existing connections
+    cleanupConnections();
+    
+    // Show disconnection overlay
+    const overlay = document.getElementById('disconnection-overlay');
+    const messageEl = document.getElementById('disconnection-message');
+    if (overlay && messageEl) {
+        messageEl.textContent = message;
+        overlay.classList.remove('hidden');
+    }
+    
+    // Hide connected view, show connecting view (or scanner if no session)
+    document.getElementById('connected-view').classList.add('hidden');
+    if (sessionId) {
+        document.getElementById('connecting-view').classList.remove('hidden');
+    } else {
+        document.getElementById('scanner-view').classList.remove('hidden');
+    }
+    
+    // Setup button handlers
+    setupDisconnectionHandlers();
+}
+
+function cleanupConnections() {
+    // Stop QR scanner if running
+    if (qrScanner) {
+        try {
+            qrScanner.stop().catch(err => console.error('Error stopping scanner:', err));
+            qrScanner.destroy();
+            qrScanner = null;
+        } catch (err) {
+            console.error('Error destroying scanner:', err);
+        }
+    }
+    
+    // Close peer connection
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
+    // Close data channel
+    if (dataChannel) {
+        dataChannel.close();
+        dataChannel = null;
+    }
+    
+    // Disconnect signaling client if using it
+    if (signalingClient) {
+        signalingClient.disconnect();
+        signalingClient = null;
+    }
+    
+    // Disconnect Socket.IO socket if using it directly (LAN mode)
+    if (socket && socket.connected) {
+        socket.disconnect();
+        // Remove all listeners to prevent duplicate handlers on reconnect
+        socket.removeAllListeners();
+    }
+    
+    // Reset file sending state
+    fileQueue = [];
+    isSendingFile = false;
+    shouldStopQueue = false;
+    if (queueProcessingTimeout) {
+        clearTimeout(queueProcessingTimeout);
+        queueProcessingTimeout = null;
+    }
+}
+
+function setupDisconnectionHandlers() {
+    const reconnectBtn = document.getElementById('reconnect-btn');
+    const reloadBtn = document.getElementById('reload-btn');
+    const countdownEl = document.getElementById('reconnect-countdown');
+    
+    if (reconnectBtn) {
+        reconnectBtn.onclick = () => {
+            if (isReconnecting) return;
+            attemptReconnection(countdownEl);
+        };
+    }
+    
+    if (reloadBtn) {
+        reloadBtn.onclick = () => {
+            location.reload();
+        };
+    }
+}
+
+function attemptReconnection(countdownEl) {
+    if (isReconnecting) return;
+    
+    isReconnecting = true;
+    const reconnectBtn = document.getElementById('reconnect-btn');
+    if (reconnectBtn) {
+        reconnectBtn.disabled = true;
+        reconnectBtn.textContent = 'Reconnecting...';
+    }
+    
+    // Show countdown (3 seconds delay to prevent race conditions)
+    let countdown = 3;
+    if (countdownEl) {
+        countdownEl.classList.remove('hidden');
+        countdownEl.textContent = `Reconnecting in ${countdown} seconds...`;
+    }
+    
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdownEl) {
+            if (countdown > 0) {
+                countdownEl.textContent = `Reconnecting in ${countdown} seconds...`;
+            } else {
+                countdownEl.textContent = 'Reconnecting now...';
+            }
+        }
+        
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            
+            // Hide overlay
+            const overlay = document.getElementById('disconnection-overlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+            
+            // Reset button
+            if (reconnectBtn) {
+                reconnectBtn.disabled = false;
+                reconnectBtn.textContent = 'Reconnect';
+            }
+            
+            if (countdownEl) {
+                countdownEl.classList.add('hidden');
+            }
+            
+            // Reinitialize signaling if we have a session ID
+            isReconnecting = false;
+            if (sessionId) {
+                // Show connecting view
+                document.getElementById('scanner-view').classList.add('hidden');
+                document.getElementById('connecting-view').classList.remove('hidden');
+                initializeSignaling();
+            } else {
+                // No session ID, show scanner
+                document.getElementById('connecting-view').classList.add('hidden');
+                document.getElementById('scanner-view').classList.remove('hidden');
+            }
+        }
+    }, 1000);
+    
+    reconnectCountdown = countdownInterval;
 }
 

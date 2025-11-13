@@ -691,3 +691,83 @@ body::before {
         font-size: 18px;
     }
 }
+
+/* Disconnection Overlay */
+.disconnection-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.disconnection-overlay.hidden {
+    display: none;
+}
+
+.disconnection-modal {
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.disconnection-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.disconnection-modal h2 {
+    color: #333;
+    margin-bottom: 12px;
+    font-size: 1.5em;
+}
+
+.disconnection-modal p {
+    color: #666;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.disconnection-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.disconnection-actions button {
+    min-width: 120px;
+}
+
+.reconnect-countdown {
+    margin-top: 16px;
+    color: #999;
+    font-size: 0.9em;
+    font-style: italic;
+}
+
+.reconnect-countdown.hidden {
+    display: none;
+}
