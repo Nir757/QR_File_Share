@@ -17,7 +17,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # Get signaling server URL from environment variable (for cross-network P2P support)
 # Set this to your Railway signaling server URL, e.g., 'wss://your-app.up.railway.app'
 # Leave empty to use Socket.IO (existing LAN mode)
-SIGNALING_SERVER_URL = os.environ.get('SIGNALING_SERVER_URL', '')
+SIGNALING_SERVER_URL = os.environ.get('SIGNALING_SERVER_URL', 'wss://qrfileshare-production.up.railway.app')
 
 # Store active sessions
 sessions = {}
