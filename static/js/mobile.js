@@ -502,24 +502,63 @@ function initializeWebRTC() {
     const configuration = {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+            { urls: 'stun:stun1.l.google.com:19302' },
+            // Free TURN servers for better cross-network connectivity
+            { 
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            }
+        ],
+        iceTransportPolicy: 'all' // Use both relay and non-relay candidates
     };
     
     peerConnection = new RTCPeerConnection(configuration);
     
     // Monitor connection state
     peerConnection.onconnectionstatechange = () => {
-        console.log('Peer connection state:', peerConnection.connectionState);
-        if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
+        const state = peerConnection.connectionState;
+        console.log('Peer connection state:', state);
+        
+        if (state === 'failed' || state === 'disconnected') {
             console.error('❌ Peer connection failed or disconnected');
+            // Clear file queue and show error
+            if (fileQueue.length > 0) {
+                fileQueue.forEach(file => {
+                    updateFileStatus(file.name, 'error', 'Connection failed - WebRTC peer connection failed');
+                });
+                fileQueue = [];
+            }
+            // Show disconnection message
+            handleDisconnection('WebRTC connection failed. Please try reconnecting.');
+        } else if (state === 'connected') {
+            console.log('✅ Peer connection established');
         }
     };
     
     peerConnection.oniceconnectionstatechange = () => {
-        console.log('ICE connection state:', peerConnection.iceConnectionState);
-        if (peerConnection.iceConnectionState === 'failed') {
-            console.error('❌ ICE connection failed');
+        const iceState = peerConnection.iceConnectionState;
+        console.log('ICE connection state:', iceState);
+        
+        if (iceState === 'failed') {
+            console.error('❌ ICE connection failed - may need TURN server or different network');
+            // Try to show helpful error
+            if (fileQueue.length > 0) {
+                const file = fileQueue[0];
+                updateFileStatus(file.name, 'error', 'Network connection failed. Both devices may be behind strict firewalls.');
+            }
+        } else if (iceState === 'connected' || iceState === 'completed') {
+            console.log('✅ ICE connection established');
         }
     };
     
@@ -568,8 +607,23 @@ function setupDataChannel() {
     
     console.log('Setting up data channel, current state:', dataChannel.readyState);
     
+    // Add timeout for data channel opening (30 seconds)
+    let dataChannelTimeout = setTimeout(() => {
+        if (dataChannel && dataChannel.readyState !== 'open') {
+            console.error('❌ Data channel timeout - failed to open within 30 seconds');
+            if (fileQueue.length > 0) {
+                fileQueue.forEach(file => {
+                    updateFileStatus(file.name, 'error', 'Data channel failed to open - connection timeout');
+                });
+                fileQueue = [];
+            }
+            handleDisconnection('Data channel failed to open. Connection may be blocked by firewall or NAT.');
+        }
+    }, 30000); // 30 second timeout
+    
     // If channel is already open, process queue immediately
     if (dataChannel.readyState === 'open') {
+        clearTimeout(dataChannelTimeout);
         console.log('Data channel already open');
         dataChannel.bufferedAmountLowThreshold = 256 * 1024; // 256KB
         setupFileInputHandlers();
@@ -579,6 +633,7 @@ function setupDataChannel() {
     }
     
     dataChannel.onopen = () => {
+        clearTimeout(dataChannelTimeout);
         console.log('✅ Data channel opened successfully');
         // Set buffer threshold for monitoring
         dataChannel.bufferedAmountLowThreshold = 256 * 1024; // 256KB
@@ -588,6 +643,28 @@ function setupDataChannel() {
         if (fileQueue.length > 0) {
             console.log(`Processing ${fileQueue.length} queued files`);
             processFileQueue();
+        }
+    };
+    
+    dataChannel.onerror = (error) => {
+        clearTimeout(dataChannelTimeout);
+        console.error('❌ Data channel error:', error);
+        if (fileQueue.length > 0) {
+            fileQueue.forEach(file => {
+                updateFileStatus(file.name, 'error', 'Data channel error occurred');
+            });
+            fileQueue = [];
+        }
+    };
+    
+    dataChannel.onclose = () => {
+        clearTimeout(dataChannelTimeout);
+        console.warn('⚠️  Data channel closed');
+        if (fileQueue.length > 0 && dataChannel.readyState === 'closed') {
+            fileQueue.forEach(file => {
+                updateFileStatus(file.name, 'error', 'Data channel closed before file could be sent');
+            });
+            fileQueue = [];
         }
     };
     
