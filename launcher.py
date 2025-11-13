@@ -79,19 +79,29 @@ def main():
     print("QR File Share Launcher")
     print("=" * 50)
     
-    # Debug: Show config values
-    print(f"\n📋 Configuration:")
-    print(f"   DEFAULT_MODE: {DEFAULT_MODE}")
-    print(f"   RAILWAY_APP_URL: {RAILWAY_APP_URL}")
-    print(f"   URL is set: {bool(RAILWAY_APP_URL)}")
+    # Ask user which mode they want
+    print("\n📋 Select Mode:")
+    print("  1. 🌐 Cross-Network Mode (Railway) - Works from anywhere")
+    print("  2. 🏠 LAN Mode (Local) - Same network only")
     
-    # Check mode and open appropriate URL
-    if DEFAULT_MODE == 'railway' and RAILWAY_APP_URL:
+    # Check if Railway URL is configured
+    if not RAILWAY_APP_URL:
+        print("\n⚠️  Warning: Railway URL not configured in config.py")
+        print("   Cross-Network Mode will not be available.")
+        print("   Set RAILWAY_APP_URL in config.py to enable it.\n")
+        choice = '2'  # Force LAN mode if Railway not configured
+    else:
+        choice = input("\nEnter choice (1 or 2) [default: 1]: ").strip() or '1'
+    
+    # Validate choice
+    if choice not in ['1', '2']:
+        print("Invalid choice. Defaulting to Cross-Network Mode.")
+        choice = '1'
+    
+    # Handle Railway mode
+    if choice == '1' and RAILWAY_APP_URL:
         print(f"\n🌐 Cross-Network Mode")
         print(f"Opening Railway app: {RAILWAY_APP_URL}")
-        print(f"\nTo use LAN mode instead:")
-        print(f"  1. Edit config.py and set DEFAULT_MODE = 'local'")
-        print(f"  2. Or click 'Switch to LAN Mode' button in the app")
         print("\nOpening browser...")
         time.sleep(1)
         webbrowser.open(RAILWAY_APP_URL)
@@ -99,29 +109,26 @@ def main():
         print("You can close this window.\n")
         input("Press Enter to exit...")
         return
-    else:
-        print(f"\n⚠️  Railway mode not enabled:")
-        print(f"   DEFAULT_MODE == 'railway': {DEFAULT_MODE == 'railway'}")
-        print(f"   RAILWAY_APP_URL is set: {bool(RAILWAY_APP_URL)}")
     
-    # Local mode - run app.py
-    print("\n🏠 LAN Mode (Local Network Only)")
-    print("Starting local server...\n")
-    
-    # Check if requirements are installed
-    if not check_requirements_installed():
-        print("First launch detected. Installing requirements...")
-        if not install_requirements():
-            print("Failed to install requirements. Please install manually:")
-            print(f"  pip install -r {Path(__file__).parent / 'requirements.txt'}")
-            input("Press Enter to exit...")
-            return
-        print("\nRequirements installed! Starting app...\n")
-    else:
-        print("Requirements already installed. Starting app...\n")
-    
-    # Run the app
-    run_app()
+    # Handle LAN mode
+    if choice == '2' or (choice == '1' and not RAILWAY_APP_URL):
+        print("\n🏠 LAN Mode (Local Network Only)")
+        print("Starting local server...\n")
+        
+        # Check if requirements are installed
+        if not check_requirements_installed():
+            print("First launch detected. Installing requirements...")
+            if not install_requirements():
+                print("Failed to install requirements. Please install manually:")
+                print(f"  pip install -r {Path(__file__).parent / 'requirements.txt'}")
+                input("Press Enter to exit...")
+                return
+            print("\nRequirements installed! Starting app...\n")
+        else:
+            print("Requirements already installed. Starting app...\n")
+        
+        # Run the app
+        run_app()
 
 if __name__ == "__main__":
     main()

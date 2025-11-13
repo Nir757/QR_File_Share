@@ -31,50 +31,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     initializeSignaling();
 });
 
-// Toggle between Railway (cross-network) and Local (LAN) mode
-// Make it globally accessible for onclick handler
-window.toggleMode = async function toggleMode() {
-    if (currentMode === 'railway') {
-        // Switch to local mode - check if local server is running first
-        if (confirm('Switch to LAN Mode? This will redirect to local server (localhost:5000).\n\nLAN Mode only works on the same network.\n\n⚠️ Make sure the local server is running!')) {
-            // Check if local server is reachable
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-                
-                const response = await fetch('http://localhost:5000/api/health-check', {
-                    method: 'GET',
-                    signal: controller.signal,
-                    cache: 'no-cache'
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    // Server is running, redirect
-                    window.location.href = 'http://localhost:5000';
-                } else {
-                    throw new Error('Server not responding');
-                }
-            } catch (error) {
-                // Server is not reachable
-                alert('❌ Local server is not running!\n\nTo use LAN Mode:\n\n1. Open a terminal/command prompt\n2. Navigate to the project folder:\n   cd "C:\\Users\\Nir Paniri\\.cursor\\dev\\freetime\\qrfileshare"\n3. Run: python launcher.py\n\nOr simply run: python app.py\n\nThen click the LAN Mode button again.');
-            }
-        }
-    } else {
-        // Switch to Railway mode - redirect to Railway URL
-        const railwayUrl = window.RAILWAY_APP_URL || 'https://flask-app-production-10c0.up.railway.app';
-        if (confirm('Switch to Cross-Network Mode? This will redirect to Railway.\n\nCross-Network Mode works from anywhere.')) {
-            window.location.href = railwayUrl;
-        }
-    }
-}
-
-// Update mode UI
+// Update mode UI (display only, no switching)
 function updateModeUI() {
-    const modeBtn = document.getElementById('mode-switch-btn');
-    const modeIndicator = document.getElementById('mode-indicator');
-    const modeText = document.getElementById('mode-text');
     const modeInfo = document.getElementById('mode-info');
     const modeInfoText = document.getElementById('mode-info-text');
     
@@ -82,21 +40,12 @@ function updateModeUI() {
         // Show current mode in info banner
         if (modeInfoText) modeInfoText.textContent = '🌐 Cross-Network Mode: Works from anywhere';
         if (modeInfo) modeInfo.style.background = '#e3f2fd';
-        // Button shows what you can switch TO (LAN Mode)
-        if (modeIndicator) modeIndicator.textContent = '🏠';
-        if (modeText) modeText.textContent = 'LAN Mode';
     } else {
         // Show current mode in info banner
         if (modeInfoText) modeInfoText.textContent = '🏠 LAN Mode: Same network only';
         if (modeInfo) modeInfo.style.background = '#fff3e0';
-        // Button shows what you can switch TO (Cross-Network)
-        if (modeIndicator) modeIndicator.textContent = '🌐';
-        if (modeText) modeText.textContent = 'Cross-Network';
     }
 }
-
-// Make updateModeUI globally accessible
-window.updateModeUI = updateModeUI;
 
 async function generateSession() {
     try {
@@ -166,9 +115,6 @@ function initializeSignaling() {
         signalingClient.on('peer_connected', () => {
             document.getElementById('qr-container').classList.add('hidden');
             document.getElementById('connected-view').classList.remove('hidden');
-            // Hide mode switcher button after connection
-            const modeSwitcher = document.querySelector('.mode-switcher');
-            if (modeSwitcher) modeSwitcher.style.display = 'none';
             initializeWebRTC();
         });
         
