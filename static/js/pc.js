@@ -29,6 +29,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateModeUI();
     await generateSession();
     initializeSignaling();
+    
+    // Setup refresh button handler
+    setTimeout(() => {
+        const refreshBtn = document.getElementById('refresh-qr-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = '🔄 Refreshing...';
+                try {
+                    await refreshQRCode();
+                } catch (error) {
+                    console.error('Error refreshing QR code:', error);
+                    alert('Failed to refresh QR code. Please reload the page.');
+                } finally {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = '🔄 Refresh QR Code';
+                }
+            });
+        }
+    }, 500);
 });
 
 // Update mode UI (display only, no switching)
@@ -98,6 +118,43 @@ async function generateSession() {
             </div>
         `;
     }
+}
+
+// Refresh QR code function
+async function refreshQRCode() {
+    // Show loading state
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('qr-container').classList.add('hidden');
+    
+    // Clean up existing connection if any
+    if (signalingClient) {
+        signalingClient.disconnect();
+        signalingClient = null;
+    }
+    if (socket) {
+        if (socket.connected) {
+            socket.disconnect();
+        }
+        socket.removeAllListeners();
+        // Socket.IO will auto-reconnect, but we'll set up listeners in initializeSignaling
+    }
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    if (dataChannel) {
+        dataChannel.close();
+        dataChannel = null;
+    }
+    
+    // Reset session
+    sessionId = null;
+    
+    // Generate new session
+    await generateSession();
+    
+    // Reinitialize signaling with new session
+    initializeSignaling();
 }
 
 // Initialize signaling (Socket.IO or WebSocket)
