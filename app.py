@@ -82,6 +82,11 @@ def debug():
     """Debug page for troubleshooting"""
     return render_template('debug.html')
 
+@app.route('/api/health-check')
+def health_check():
+    """Simple health check endpoint for mode switching"""
+    return jsonify({'status': 'ok', 'mode': 'local'})
+
 @app.route('/api/generate-session', methods=['POST'])
 def generate_session():
     """Generate a new session and QR code"""
