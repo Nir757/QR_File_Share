@@ -110,6 +110,44 @@ The app will:
 - **Port 5000 already in use**: Change the port in `app.py` or stop the other service
 - **Firewall blocking**: Allow Python through your firewall
 
+## Known Issues
+
+### ⚠️ Cross-Network Mode May Not Work on Some Networks
+
+**Status:** Under Investigation
+
+Some users have reported that **Cross-Network Mode** gets stuck on "Queued" or fails to establish a connection, while **LAN Mode works perfectly**. This appears to be network/environment-specific rather than a code bug.
+
+**Possible Causes:**
+
+1. **Router WiFi Isolation (Most Common)**
+   - If you're connected via WiFi, your router may have "AP Isolation" or "Client Isolation" enabled
+   - This blocks WiFi devices from communicating with each other
+   - **Solution:** Connect via Ethernet, or disable AP/Client Isolation in your router settings
+
+2. **TURN Server Blocking**
+   - Some corporate networks, ISPs, or firewalls block TURN relay servers
+   - The app uses free TURN servers which may be blocked or unreliable
+   - **Workaround:** Use LAN Mode when devices are on the same network
+
+3. **Windows Firewall / Antivirus**
+   - Security software may block WebRTC connections on some PCs
+   - **Solution:** Temporarily disable firewall/antivirus to test
+
+4. **VPN Interference**
+   - VPNs can interfere with WebRTC peer-to-peer connections
+   - **Solution:** Disconnect VPN temporarily when using the app
+
+**Recommended:**
+- ✅ **Use LAN Mode** when devices are on the same WiFi - it's faster and more reliable
+- ✅ **Check router WiFi isolation settings** if LAN mode doesn't work on WiFi but works on Ethernet
+- ✅ **Cross-Network Mode works fine on most home networks** - the issue appears in specific network configurations
+
+If you experience issues, please report them with:
+- Your network type (home WiFi, corporate, mobile hotspot, etc.)
+- Connection method (WiFi vs Ethernet)
+- Console logs showing ICE candidate counts
+
 ## Notes
 
 - The app uses Google's STUN servers for NAT traversal
