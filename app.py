@@ -34,7 +34,13 @@ socketio = SocketIO(
 # Set this to your Railway signaling server URL, e.g., 'wss://your-app.up.railway.app'
 # Leave empty to use Socket.IO (existing LAN mode)
 # DEFAULT: Empty string for LAN mode (works on same network)
+# AUTO-DETECT: If running on Railway (PORT env var set), use Railway WebSocket signaling server
 _signaling_url_raw = os.environ.get('SIGNALING_SERVER_URL', '')
+# Auto-detect Railway deployment and use cross-network mode
+if not _signaling_url_raw and os.environ.get('PORT'):
+    # Running on Railway - use Railway WebSocket signaling server for cross-network P2P
+    _signaling_url_raw = 'wss://qrfileshare-production.up.railway.app'
+    print("🌐 Auto-detected Railway deployment - using cross-network mode")
 # Clean up if someone accidentally included the variable name in the value
 if 'SIGNALING_SERVER_URL=' in _signaling_url_raw:
     SIGNALING_SERVER_URL = _signaling_url_raw.split('SIGNALING_SERVER_URL=')[-1].strip()
