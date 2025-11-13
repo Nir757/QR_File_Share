@@ -62,14 +62,14 @@ function updateModeUI() {
         if (modeInfo) modeInfo.style.background = '#e3f2fd';
         // Button shows what you can switch TO (LAN Mode)
         if (modeIndicator) modeIndicator.textContent = '🏠';
-        if (modeText) modeText.textContent = 'Switch to LAN';
+        if (modeText) modeText.textContent = 'LAN Mode';
     } else {
         // Show current mode in info banner
         if (modeInfoText) modeInfoText.textContent = '🏠 LAN Mode: Same network only';
         if (modeInfo) modeInfo.style.background = '#fff3e0';
         // Button shows what you can switch TO (Cross-Network)
         if (modeIndicator) modeIndicator.textContent = '🌐';
-        if (modeText) modeText.textContent = 'Switch to Cross-Network';
+        if (modeText) modeText.textContent = 'Cross-Network';
     }
 }
 
@@ -144,6 +144,9 @@ function initializeSignaling() {
         signalingClient.on('peer_connected', () => {
             document.getElementById('qr-container').classList.add('hidden');
             document.getElementById('connected-view').classList.remove('hidden');
+            // Hide mode switcher button after connection
+            const modeSwitcher = document.querySelector('.mode-switcher');
+            if (modeSwitcher) modeSwitcher.style.display = 'none';
             initializeWebRTC();
         });
         
