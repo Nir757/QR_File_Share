@@ -219,6 +219,20 @@ function startScanner() {
         return;
     }
     
+    // Reset processing flag in case it was stuck
+    isProcessingQRCode = false;
+    
+    // Clean up any existing scanner instance
+    if (qrScanner) {
+        try {
+            qrScanner.stop().catch(err => console.error('Error stopping existing scanner:', err));
+            qrScanner.destroy();
+            qrScanner = null;
+        } catch (err) {
+            console.error('Error destroying existing scanner:', err);
+        }
+    }
+    
     // Hide the start button and show video
     if (startBtn) {
         startBtn.style.display = 'none';
@@ -235,26 +249,42 @@ function startScanner() {
     console.log('Initializing QR Scanner...');
     
     try {
-        // Try without returnDetailedScanResult first to see if callback works
+        // Create QR scanner with proper callback handling
         qrScanner = new QrScanner(
             video,
             result => {
+                console.log('QR Scanner callback triggered!');
+                console.log('Raw result:', result);
+                console.log('Result type:', typeof result);
+                
                 // Prevent processing if already handling a QR code
                 if (isProcessingQRCode) {
                     console.log('Already processing QR code, ignoring duplicate scan');
                     return;
                 }
                 
-                console.log('QR Scanner callback triggered!');
-                console.log('Result:', result);
-                console.log('Result type:', typeof result);
+                // Handle the result - QrScanner returns the data directly as string when returnDetailedScanResult is false
+                let scanResult = null;
                 
-                // Handle the result - QrScanner might return the data directly or as an object
-                let scanResult = result;
-                if (result && typeof result === 'object' && result.data) {
-                    scanResult = result.data;
-                } else if (typeof result === 'string') {
+                if (typeof result === 'string') {
                     scanResult = result;
+                } else if (result && typeof result === 'object') {
+                    // Handle detailed result object
+                    if (result.data) {
+                        scanResult = result.data;
+                    } else if (result.result) {
+                        scanResult = result.result;
+                    } else if (result.text) {
+                        scanResult = result.text;
+                    } else {
+                        // Try to extract from object
+                        scanResult = JSON.stringify(result);
+                    }
+                }
+                
+                if (!scanResult) {
+                    console.error('Could not extract scan result from:', result);
+                    return;
                 }
                 
                 console.log('Processed scan result:', scanResult);
@@ -269,7 +299,7 @@ function startScanner() {
                 // Scanner configuration
                 highlightScanRegion: true,
                 highlightCodeOutline: true,
-                maxScansPerSecond: 5, // Reduce scan rate to prevent duplicates
+                maxScansPerSecond: 10, // Increased from 5 to improve detection
                 preferredCamera: 'environment', // Use back camera on mobile
                 returnDetailedScanResult: false // Simple string result
             }
@@ -291,6 +321,9 @@ function startScanner() {
                     status.style.fontWeight = '600';
                     status.textContent = '📷 Camera active - Point at QR code';
                     scannerView.appendChild(status);
+                } else {
+                    statusText.textContent = '📷 Camera active - Point at QR code';
+                    statusText.style.color = '#4caf50';
                 }
             }
         }).catch(err => {
@@ -301,6 +334,8 @@ function startScanner() {
             if (startBtn) {
                 startBtn.style.display = 'block';
             }
+            // Reset processing flag on error
+            isProcessingQRCode = false;
         });
     } catch (error) {
         console.error('Error creating QR Scanner:', error);
@@ -309,6 +344,8 @@ function startScanner() {
         if (startBtn) {
             startBtn.style.display = 'block';
         }
+        // Reset processing flag on error
+        isProcessingQRCode = false;
     }
 }
 
@@ -1431,11 +1468,52 @@ function handleDisconnection(message) {
     if (sessionId) {
         document.getElementById('connecting-view').classList.remove('hidden');
     } else {
+        // Reset scanner view when showing it again
+        resetScannerView();
         document.getElementById('scanner-view').classList.remove('hidden');
     }
     
     // Setup button handlers
     setupDisconnectionHandlers();
+}
+
+function resetScannerView() {
+    // Reset scanner view to initial state
+    const video = document.getElementById('qr-video');
+    const startBtn = document.getElementById('start-scanner');
+    const scannerView = document.getElementById('scanner-view');
+    
+    // Hide video and show start button
+    if (video) {
+        video.classList.add('hidden');
+        video.style.display = 'none';
+    }
+    
+    if (startBtn) {
+        startBtn.style.display = 'block';
+    }
+    
+    // Remove status text if exists
+    if (scannerView) {
+        const statusText = scannerView.querySelector('.scan-status');
+        if (statusText) {
+            statusText.remove();
+        }
+    }
+    
+    // Reset processing flag
+    isProcessingQRCode = false;
+    
+    // Clean up any existing scanner
+    if (qrScanner) {
+        try {
+            qrScanner.stop().catch(err => console.error('Error stopping scanner in reset:', err));
+            qrScanner.destroy();
+            qrScanner = null;
+        } catch (err) {
+            console.error('Error destroying scanner in reset:', err);
+        }
+    }
 }
 
 function cleanupConnections() {
