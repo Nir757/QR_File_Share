@@ -246,33 +246,123 @@ def open_browser():
     time.sleep(1.5)  # Wait for server to start
     webbrowser.open('http://127.0.0.1:5000')
 
+def check_requirements_installed():
+    """Check if requirements are already installed"""
+    try:
+        import flask
+        import flask_socketio
+        import qrcode
+        import Pillow
+        return True
+    except ImportError:
+        return False
+
+def install_requirements():
+    """Install requirements from requirements.txt"""
+    print("Installing requirements...")
+    script_dir = Path(__file__).parent.absolute()
+    requirements_file = script_dir / "requirements.txt"
+    
+    if not requirements_file.exists():
+        print(f"Error: requirements.txt not found at {requirements_file}")
+        return False
+    
+    try:
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", "-r", str(requirements_file)
+        ])
+        print("Requirements installed successfully!")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error installing requirements: {e}")
+        return False
+
 if __name__ == '__main__':
-    # Get port from environment variable (Railway, Heroku, etc.) or default to 5000
-    port = int(os.environ.get('PORT', 5000))
-    
-    
-    # Only open browser if not in reloader subprocess (prevents double opening in debug mode)
-    # And only if running locally (not on Railway/Heroku)
-    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true' and not os.environ.get('PORT'):
-        # Open browser in a separate thread
-        threading.Thread(target=open_browser, daemon=True).start()
-    
-    # Debug mode only for local development
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true' and not os.environ.get('PORT')
-    
-    print("\n" + "="*50)
-    print("QR File Share Server Starting...")
-    print("="*50)
+    # If running on Railway/Cloud, PORT will be set - just run normally
     if os.environ.get('PORT'):
+        port = int(os.environ.get('PORT'))
+        print("\n" + "="*50)
+        print("QR File Share Server Starting...")
+        print("="*50)
         print(f"Running on Railway/Cloud - Port: {port}")
-        print(f"Public URL will be provided by Railway")
+        print("="*50 + "\n")
+        socketio.run(app, host='0.0.0.0', port=port, debug=False)
     else:
-        print(f"🏠 LAN Mode (Local Network Only)")
+        # Running locally - prompt for mode selection
+        print("=" * 50)
+        print("QR File Share")
+        print("=" * 50)
+        
+        # Try to import config for Railway URL
+        try:
+            from config import RAILWAY_APP_URL
+        except ImportError:
+            RAILWAY_APP_URL = ''
+        
+        # Ask user which mode they want
+        print("\n📋 Select Mode:")
+        print("  1. 🌐 Cross-Network Mode (Railway) - Works from anywhere")
+        print("  2. 🏠 LAN Mode (Local) - Same network only")
+        
+        # Check if Railway URL is configured
+        if not RAILWAY_APP_URL:
+            print("\n⚠️  Warning: Railway URL not configured in config.py")
+            print("   Cross-Network Mode will not be available.")
+            print("   Set RAILWAY_APP_URL in config.py to enable it.\n")
+            choice = '2'  # Force LAN mode if Railway not configured
+        else:
+            choice = input("\nEnter choice (1 or 2) [default: 1]: ").strip() or '1'
+        
+        # Validate choice
+        if choice not in ['1', '2']:
+            print("Invalid choice. Defaulting to Cross-Network Mode.")
+            choice = '1'
+        
+        # Handle Railway mode
+        if choice == '1' and RAILWAY_APP_URL:
+            print(f"\n🌐 Cross-Network Mode")
+            print(f"Opening Railway app: {RAILWAY_APP_URL}")
+            print("\nOpening browser...")
+            time.sleep(1)
+            webbrowser.open(RAILWAY_APP_URL)
+            print("\n✅ Browser opened! The app is running on Railway.")
+            print("You can close this window.\n")
+            input("Press Enter to exit...")
+            sys.exit(0)
+        
+        # Handle LAN mode - check requirements and run server
+        print("\n🏠 LAN Mode (Local Network Only)")
+        print("Starting local server...\n")
+        
+        # Check if requirements are installed
+        if not check_requirements_installed():
+            print("First launch detected. Installing requirements...")
+            if not install_requirements():
+                print("Failed to install requirements. Please install manually:")
+                print(f"  pip install -r {Path(__file__).parent / 'requirements.txt'}")
+                input("Press Enter to exit...")
+                sys.exit(1)
+            print("\nRequirements installed! Starting app...\n")
+        else:
+            print("Requirements already installed. Starting app...\n")
+        
+        # Get port for local server
+        port = int(os.environ.get('PORT', 5000))
+        
+        # Only open browser if not in reloader subprocess (prevents double opening in debug mode)
+        if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+            # Open browser in a separate thread
+            threading.Thread(target=open_browser, daemon=True).start()
+        
+        # Debug mode only for local development
+        debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+        
+        print("\n" + "="*50)
+        print("QR File Share Server Starting...")
+        print("="*50)
         print(f"Running locally - Port: {port}")
-        print(f"Server will open automatically in your browser")
-        print(f"If it doesn't open, visit: http://127.0.0.1:{port}")
-        print(f"Local IP: http://{get_local_ip()}:{port}" if get_local_ip() else "Could not determine local IP")
-        print(f"\n💡 Tip: Use 'python launcher.py' to open Railway URL automatically")
-    print("="*50 + "\n")
-    socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
+        print(f"Access at: http://127.0.0.1:{port}")
+        print("="*50 + "\n")
+        
+        socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
 
