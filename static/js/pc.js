@@ -615,7 +615,15 @@ function formatFileSize(bytes) {
 }
 
 // File upload area setup
+let fileUploadSetup = false; // Guard to prevent multiple setups
+
 function setupFileUpload() {
+    // Prevent multiple setups
+    if (fileUploadSetup) {
+        console.log('File upload already set up, skipping...');
+        return;
+    }
+    
     const fileInput = document.getElementById('file-input');
     const uploadArea = document.getElementById('file-upload-area');
     const browseBtn = document.getElementById('browse-btn');
@@ -624,7 +632,7 @@ function setupFileUpload() {
     
     // Click on upload area to trigger file picker
     uploadArea.addEventListener('click', (e) => {
-        if (e.target !== browseBtn) {
+        if (e.target !== browseBtn && e.target !== fileInput) {
             fileInput.click();
         }
     });
@@ -633,24 +641,43 @@ function setupFileUpload() {
     if (browseBtn) {
         browseBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             fileInput.click();
         });
     }
     
-    // File input change
+    // File input change - use once flag to prevent multiple triggers
+    let isProcessingChange = false;
     fileInput.addEventListener('change', (e) => {
+        // Prevent multiple simultaneous change events
+        if (isProcessingChange) {
+            console.log('Already processing file change, ignoring...');
+            return;
+        }
+        
+        isProcessingChange = true;
         const files = e.target.files;
+        
         if (files.length > 0) {
             Array.from(files).forEach(file => {
                 queueFile(file);
             });
-            fileInput.value = ''; // Reset input
+            // Reset input after a small delay to prevent immediate re-trigger
+            setTimeout(() => {
+                fileInput.value = '';
+                isProcessingChange = false;
+            }, 100);
+            
             // Start processing queue if not already processing
             if (!isSendingFile && fileQueue.length > 0) {
                 processFileQueue();
             }
+        } else {
+            isProcessingChange = false;
         }
     });
+    
+    fileUploadSetup = true;
     
     // Setup cancel queue button
     const cancelBtn = document.getElementById('cancel-queue-btn');

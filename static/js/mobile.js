@@ -292,6 +292,14 @@ function startScanner() {
                 // Mark as processing
                 isProcessingQRCode = true;
                 
+                // Set a timeout to reset the flag in case processing gets stuck (5 seconds)
+                setTimeout(() => {
+                    if (isProcessingQRCode) {
+                        console.warn('QR processing timeout - resetting flag');
+                        isProcessingQRCode = false;
+                    }
+                }, 5000);
+                
                 // Process the QR code
                 handleQRCode(scanResult);
             },
@@ -437,17 +445,35 @@ function handleQRCode(result) {
             
             // Small delay to show feedback, then navigate
             setTimeout(() => {
+                // Reset flag before navigation
+                isProcessingQRCode = false;
                 window.location.href = url;
             }, 500);
         } else {
             console.warn('QR code URL does not contain session ID');
             isProcessingQRCode = false; // Reset flag
             alert('Invalid QR code. Please scan the QR code from your computer.\n\nURL: ' + url);
+            // Restart scanner after invalid scan
+            if (qrScanner) {
+                setTimeout(() => {
+                    if (qrScanner && !isProcessingQRCode) {
+                        qrScanner.start().catch(err => console.error('Error restarting scanner:', err));
+                    }
+                }, 1000);
+            }
         }
     } catch (error) {
         console.error('Error parsing QR code URL:', error, 'URL:', url);
         isProcessingQRCode = false; // Reset flag
         alert('Invalid QR code format. Please scan again.\n\nError: ' + error.message + '\nURL: ' + url);
+        // Restart scanner after error
+        if (qrScanner) {
+            setTimeout(() => {
+                if (qrScanner && !isProcessingQRCode) {
+                    qrScanner.start().catch(err => console.error('Error restarting scanner:', err));
+                }
+            }, 1000);
+        }
     }
 }
 
@@ -944,7 +970,15 @@ function formatFileSize(bytes) {
 }
 
 // File sending handlers
+let fileInputHandlersSetup = false; // Guard to prevent multiple setups
+
 function setupFileInputHandlers() {
+    // Prevent multiple setups
+    if (fileInputHandlersSetup) {
+        console.log('File input handlers already set up, skipping...');
+        return;
+    }
+    
     const fileInput = document.getElementById('file-input');
     const uploadArea = document.getElementById('file-upload-area');
     const browseBtn = document.getElementById('browse-btn');
@@ -956,7 +990,7 @@ function setupFileInputHandlers() {
     
     // Click on upload area to trigger file picker
     uploadArea.addEventListener('click', (e) => {
-        if (e.target !== browseBtn) {
+        if (e.target !== browseBtn && e.target !== fileInput) {
             fileInput.click();
         }
     });
@@ -965,25 +999,43 @@ function setupFileInputHandlers() {
     if (browseBtn) {
         browseBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             fileInput.click();
         });
     }
     
     // Handle file selection - queue files for sending
+    let isProcessingChange = false;
     fileInput.addEventListener('change', (e) => {
+        // Prevent multiple simultaneous change events
+        if (isProcessingChange) {
+            console.log('Already processing file change, ignoring...');
+            return;
+        }
+        
+        isProcessingChange = true;
         const files = e.target.files;
+        
         if (files.length > 0) {
             Array.from(files).forEach(file => {
                 queueFile(file);
             });
-            // Clear the input so the same file can be selected again
-            fileInput.value = '';
+            // Clear the input after a small delay to prevent immediate re-trigger
+            setTimeout(() => {
+                fileInput.value = '';
+                isProcessingChange = false;
+            }, 100);
+            
             // Start processing queue if not already processing
             if (!isSendingFile && fileQueue.length > 0) {
                 processFileQueue();
             }
+        } else {
+            isProcessingChange = false;
         }
     });
+    
+    fileInputHandlersSetup = true;
     
     // Setup cancel queue button
     const cancelBtn = document.getElementById('cancel-queue-btn');
