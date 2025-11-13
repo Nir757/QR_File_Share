@@ -13,7 +13,6 @@ let queueProcessingTimeout = null;
 let shouldStopQueue = false;
 let receivingChunks = {}; // Track file chunks being received {fileId: {chunks: [], totalChunks, fileName, fileSize, fileType}}
 const CHUNK_SIZE = 200 * 1024; // 200KB chunks (safe for WebRTC)
-let downloadFolderHandle = null; // Store the selected download folder handle for the session
 
 // Signaling client for cross-network P2P support
 let signalingClient = null;
@@ -95,13 +94,6 @@ function initializeSignaling() {
             document.getElementById('connected-view').classList.remove('hidden');
             initializeWebRTC();
             setupDownloadAllButton();
-            updateFolderIndicator();
-            if (!('showDirectoryPicker' in window)) {
-                const changeFolderBtn = document.getElementById('change-folder-btn');
-                if (changeFolderBtn) {
-                    changeFolderBtn.style.display = 'none';
-                }
-            }
             // Setup file input handlers immediately (they'll be ready when data channel opens)
             // Reset flag in case of reconnection
             fileInputHandlersSetup = false;
@@ -176,14 +168,6 @@ function setupSocketListeners() {
         initializeWebRTC();
         // Setup button handlers when connected view is shown
         setupDownloadAllButton();
-        // Initialize folder indicator and hide button if API not available
-        updateFolderIndicator();
-        if (!('showDirectoryPicker' in window)) {
-            const changeFolderBtn = document.getElementById('change-folder-btn');
-            if (changeFolderBtn) {
-                changeFolderBtn.style.display = 'none';
-            }
-        }
         // Setup file input handlers immediately (they'll be ready when data channel opens)
         // Reset flag in case of reconnection
         fileInputHandlersSetup = false;
@@ -1006,89 +990,8 @@ function setupDownloadAllButton() {
 // Setup when DOM is ready (mobile.js already has DOMContentLoaded, so use it)
 // This will be called from the existing DOMContentLoaded handler
 
-async function downloadFile(file) {
-    // Check if File System Access API is available (Android Chrome)
-    // We need showDirectoryPicker for folder selection
-    if ('showDirectoryPicker' in window || 'showSaveFilePicker' in window) {
-        try {
-            await downloadFileWithPicker(file);
-        } catch (error) {
-            // User cancelled or error occurred, fall back to default download
-            if (error.name !== 'AbortError') {
-                console.error('Error using file picker, falling back to default download:', error);
-            }
-            downloadFileDefault(file);
-        }
-    } else {
-        // File System Access API not available, use default download
-        downloadFileDefault(file);
-    }
-}
-
-async function downloadFileWithPicker(file) {
-    const blob = new Blob([base64ToArrayBuffer(file.data)], { type: file.type });
-    
-    // If we have a saved folder handle, save directly to that folder
-    if (downloadFolderHandle) {
-        try {
-            await saveFileToFolder(file, blob, downloadFolderHandle);
-            return;
-        } catch (error) {
-            // Folder handle might be invalid (e.g., user revoked permission)
-            console.warn('Saved folder handle invalid, prompting for new folder:', error);
-            downloadFolderHandle = null;
-            // Fall through to prompt for folder selection
-        }
-    }
-    
-    // No saved folder or handle invalid, prompt user to select a folder
-    try {
-        // Use showDirectoryPicker to let user select a folder
-        const folderHandle = await window.showDirectoryPicker();
-        downloadFolderHandle = folderHandle;
-        
-        // Save the file to the selected folder
-        await saveFileToFolder(file, blob, folderHandle);
-        
-        // Update folder indicator
-        updateFolderIndicator();
-    } catch (error) {
-        // User cancelled directory picker, fall back to file picker
-        if (error.name === 'AbortError') {
-            // User cancelled, use default download instead
-            throw error;
-        }
-        // Other error, try file picker as fallback
-        const options = {
-            suggestedName: file.name,
-            types: [{
-                description: 'All Files',
-                accept: {
-                    'application/octet-stream': ['.*']
-                }
-            }]
-        };
-        
-        const fileHandle = await window.showSaveFilePicker(options);
-        await saveFileToFileHandle(file, blob, fileHandle);
-    }
-}
-
-async function saveFileToFileHandle(file, blob, fileHandle) {
-    const writable = await fileHandle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-}
-
-async function saveFileToFolder(file, blob, folderHandle) {
-    // Try to get or create the file in the folder
-    const fileHandle = await folderHandle.getFileHandle(file.name, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-}
-
-function downloadFileDefault(file) {
+function downloadFile(file) {
+    // Always use default download method - reliable and no permission issues
     const blob = new Blob([base64ToArrayBuffer(file.data)], { type: file.type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1096,58 +999,6 @@ function downloadFileDefault(file) {
     a.download = file.name;
     a.click();
     URL.revokeObjectURL(url);
-}
-
-function clearDownloadFolder() {
-    downloadFolderHandle = null;
-    updateFolderIndicator();
-}
-
-async function changeDownloadFolder() {
-    // Check if File System Access API is available
-    if (!('showDirectoryPicker' in window)) {
-        alert('Folder selection is not available in this browser. Please use Chrome on Android.');
-        return;
-    }
-    
-    try {
-        const folderHandle = await window.showDirectoryPicker();
-        downloadFolderHandle = folderHandle;
-        updateFolderIndicator();
-        // Show success message
-        const indicator = document.getElementById('download-folder-indicator');
-        if (indicator) {
-            const originalText = indicator.textContent;
-            indicator.textContent = 'Folder selected!';
-            indicator.style.color = '#4caf50';
-            setTimeout(() => {
-                updateFolderIndicator();
-            }, 2000);
-        }
-    } catch (error) {
-        if (error.name !== 'AbortError') {
-            console.error('Error selecting folder:', error);
-            alert('Error selecting folder. Please try again.');
-        }
-        // User cancelled, do nothing
-    }
-}
-
-// Make functions globally accessible
-window.clearDownloadFolder = clearDownloadFolder;
-window.changeDownloadFolder = changeDownloadFolder;
-
-function updateFolderIndicator() {
-    const indicator = document.getElementById('download-folder-indicator');
-    if (indicator) {
-        if (downloadFolderHandle) {
-            indicator.textContent = 'Custom folder selected';
-            indicator.style.color = '#4caf50';
-        } else {
-            indicator.textContent = 'Default download location';
-            indicator.style.color = '#666';
-        }
-    }
 }
 
 function base64ToArrayBuffer(base64) {
