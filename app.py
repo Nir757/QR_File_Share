@@ -9,6 +9,7 @@ import socket
 import webbrowser
 import threading
 import time
+import sys
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
@@ -230,6 +231,33 @@ if __name__ == '__main__':
     # Get port from environment variable (Railway, Heroku, etc.) or default to 5000
     port = int(os.environ.get('PORT', 5000))
     
+    # Check if we should redirect to Railway instead of running locally
+    # Only check if running locally (not on Railway/Heroku)
+    if not os.environ.get('PORT'):
+        try:
+            from config import RAILWAY_APP_URL, DEFAULT_MODE
+            if DEFAULT_MODE == 'railway' and RAILWAY_APP_URL:
+                print("\n" + "="*50)
+                print("QR File Share")
+                print("="*50)
+                print(f"\n🌐 Cross-Network Mode Enabled")
+                print(f"Opening Railway app: {RAILWAY_APP_URL}")
+                print(f"\n⚠️  Note: You're running app.py directly.")
+                print(f"   For better experience, use: python launcher.py")
+                print(f"\n   To use LAN mode instead:")
+                print(f"   1. Edit config.py and set DEFAULT_MODE = 'local'")
+                print(f"   2. Or click 'Switch to LAN Mode' button in the app")
+                print("\nOpening browser...")
+                time.sleep(1)
+                webbrowser.open(RAILWAY_APP_URL)
+                print("\n✅ Browser opened! The app is running on Railway.")
+                print("You can close this window.\n")
+                input("Press Enter to exit...")
+                sys.exit(0)
+        except ImportError:
+            # config.py not found, continue with local mode
+            pass
+    
     # Only open browser if not in reloader subprocess (prevents double opening in debug mode)
     # And only if running locally (not on Railway/Heroku)
     if os.environ.get('WERKZEUG_RUN_MAIN') != 'true' and not os.environ.get('PORT'):
@@ -246,10 +274,12 @@ if __name__ == '__main__':
         print(f"Running on Railway/Cloud - Port: {port}")
         print(f"Public URL will be provided by Railway")
     else:
+        print(f"🏠 LAN Mode (Local Network Only)")
         print(f"Running locally - Port: {port}")
         print(f"Server will open automatically in your browser")
         print(f"If it doesn't open, visit: http://127.0.0.1:{port}")
         print(f"Local IP: http://{get_local_ip()}:{port}" if get_local_ip() else "Could not determine local IP")
+        print(f"\n💡 Tip: Use 'python launcher.py' to open Railway URL automatically")
     print("="*50 + "\n")
     socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
 

@@ -79,6 +79,12 @@ def main():
     print("QR File Share Launcher")
     print("=" * 50)
     
+    # Debug: Show config values
+    print(f"\n📋 Configuration:")
+    print(f"   DEFAULT_MODE: {DEFAULT_MODE}")
+    print(f"   RAILWAY_APP_URL: {RAILWAY_APP_URL}")
+    print(f"   URL is set: {bool(RAILWAY_APP_URL)}")
+    
     # Check mode and open appropriate URL
     if DEFAULT_MODE == 'railway' and RAILWAY_APP_URL:
         print(f"\n🌐 Cross-Network Mode")
@@ -93,6 +99,10 @@ def main():
         print("You can close this window.\n")
         input("Press Enter to exit...")
         return
+    else:
+        print(f"\n⚠️  Railway mode not enabled:")
+        print(f"   DEFAULT_MODE == 'railway': {DEFAULT_MODE == 'railway'}")
+        print(f"   RAILWAY_APP_URL is set: {bool(RAILWAY_APP_URL)}")
     
     # Local mode - run app.py
     print("\n🏠 LAN Mode (Local Network Only)")
