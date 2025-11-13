@@ -115,16 +115,28 @@ def generate_session():
     
     # Create QR code with session URL
     qr_url = f"{host_url}mobile?session={session_id}"
+    
+    # Generate QR code with higher quality settings for better phone scanning
     qr = qrcode.QRCode(
-        version=1,
-        box_size=12,  # Larger box size for better scanning
-        border=4,
-        error_correction=qrcode.constants.ERROR_CORRECT_M
+        version=None,  # Auto-determine version based on data
+        error_correction=qrcode.constants.ERROR_CORRECT_H,  # High error correction (30%)
+        box_size=15,  # Larger box size for better scanning (increased from 12)
+        border=4,  # Border around QR code
     )
     qr.add_data(qr_url)
     qr.make(fit=True)
     
+    # Create image with higher DPI for better quality
     img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Resize image to ensure minimum size for phone cameras (at least 300x300px)
+    from PIL import Image
+    min_size = 400  # Minimum size in pixels
+    if img.size[0] < min_size or img.size[1] < min_size:
+        # Calculate scale factor to reach minimum size
+        scale = max(min_size / img.size[0], min_size / img.size[1])
+        new_size = (int(img.size[0] * scale), int(img.size[1] * scale))
+        img = img.resize(new_size, Image.Resampling.LANCZOS)
     buffer = io.BytesIO()
     img.save(buffer, format='PNG')
     buffer.seek(0)

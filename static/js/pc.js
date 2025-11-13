@@ -57,15 +57,19 @@ function updateModeUI() {
     const modeInfoText = document.getElementById('mode-info-text');
     
     if (currentMode === 'railway') {
-        if (modeIndicator) modeIndicator.textContent = '🌐';
-        if (modeText) modeText.textContent = 'Cross-Network';
+        // Show current mode in info banner
         if (modeInfoText) modeInfoText.textContent = '🌐 Cross-Network Mode: Works from anywhere';
         if (modeInfo) modeInfo.style.background = '#e3f2fd';
-    } else {
+        // Button shows what you can switch TO (LAN Mode)
         if (modeIndicator) modeIndicator.textContent = '🏠';
-        if (modeText) modeText.textContent = 'LAN Mode';
+        if (modeText) modeText.textContent = 'Switch to LAN';
+    } else {
+        // Show current mode in info banner
         if (modeInfoText) modeInfoText.textContent = '🏠 LAN Mode: Same network only';
         if (modeInfo) modeInfo.style.background = '#fff3e0';
+        // Button shows what you can switch TO (Cross-Network)
+        if (modeIndicator) modeIndicator.textContent = '🌐';
+        if (modeText) modeText.textContent = 'Switch to Cross-Network';
     }
 }
 
