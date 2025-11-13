@@ -10,6 +10,8 @@ A web-based file sharing application that allows you to share files between your
 - 🎨 **Modern UI**: Beautiful, responsive interface
 - ⚡ **Fast**: Uses WebRTC for peer-to-peer file transfer
 - ✅ **File Approval**: Choose which files to download or reject
+- 🔄 **Smart Reconnection**: Automatic reconnection with delay to prevent race conditions
+- 📷 **Reliable QR Scanning**: Improved QR code detection with auto-restart on errors
 
 ## How It Works
 
@@ -98,8 +100,10 @@ The app will:
 ### Connection Issues
 
 - **Can't connect on LAN**: Make sure both devices are on the same WiFi network
-- **QR code not scanning**: Ensure good lighting and hold phone steady
+- **QR code not scanning**: Ensure good lighting and hold phone steady. If it doesn't work, try refreshing the page and scanning again
 - **Connection timeout**: Check your internet connection
+- **File picker keeps opening**: This has been fixed in recent updates. If it still happens, refresh the page
+- **Disconnection issues**: Use the reconnection UI that appears when a peer disconnects - wait for the countdown before reconnecting
 
 ### Port Issues
 
