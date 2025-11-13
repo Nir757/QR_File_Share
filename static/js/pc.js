@@ -197,9 +197,14 @@ function setupSocketListeners() {
 function initializeWebRTC() {
     const configuration = {
         iceServers: [
+            // Google STUN servers
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            // Free TURN servers for better cross-network connectivity
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            
+            // Metered TURN servers (free, reliable)
             { 
                 urls: 'turn:openrelay.metered.ca:80',
                 username: 'openrelayproject',
@@ -214,12 +219,60 @@ function initializeWebRTC() {
                 urls: 'turn:openrelay.metered.ca:443?transport=tcp',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
+            },
+            
+            // Alternative free TURN servers
+            { 
+                urls: 'turn:a.relay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:a.relay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
             }
         ],
-        iceTransportPolicy: 'all' // Use both relay and non-relay candidates
+        iceTransportPolicy: 'all', // Use both relay and non-relay candidates
+        iceCandidatePoolSize: 10 // Pre-gather more candidates for faster connection
     };
     
     peerConnection = new RTCPeerConnection(configuration);
+    
+    // Log ICE candidates for debugging
+    let candidateCount = { host: 0, srflx: 0, relay: 0 };
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            // Log candidate type
+            const candidate = event.candidate;
+            const type = candidate.type || 'unknown';
+            candidateCount[type] = (candidateCount[type] || 0) + 1;
+            console.log(`ICE candidate (${type}):`, candidate.candidate);
+            console.log('Candidate counts:', candidateCount);
+            
+            if (signalingClient) {
+                signalingClient.sendIceCandidate(event.candidate);
+            } else {
+                socket.emit('ice_candidate', {
+                    session_id: sessionId,
+                    candidate: event.candidate
+                });
+            }
+        } else {
+            // ICE gathering complete
+            console.log('✅ ICE gathering complete. Total candidates:', candidateCount);
+        }
+    };
     
     // Monitor connection state
     peerConnection.onconnectionstatechange = () => {
@@ -288,20 +341,6 @@ function initializeWebRTC() {
     // Create data channel for file transfer
     dataChannel = peerConnection.createDataChannel('files', { ordered: true });
     setupDataChannel();
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            if (signalingClient) {
-                signalingClient.sendIceCandidate(event.candidate);
-            } else {
-                socket.emit('ice_candidate', {
-                    session_id: sessionId,
-                    candidate: event.candidate
-                });
-            }
-        }
-    };
     
     // Create and send offer
     peerConnection.createOffer()
