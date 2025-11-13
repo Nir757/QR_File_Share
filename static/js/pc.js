@@ -69,6 +69,9 @@ function updateModeUI() {
     }
 }
 
+// Make updateModeUI globally accessible
+window.updateModeUI = updateModeUI;
+
 async function generateSession() {
     try {
         const response = await fetch('/api/generate-session', {
