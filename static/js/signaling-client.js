@@ -131,6 +131,17 @@ class SignalingClient {
                 session_id: this.sessionId,
                 peer_type: this.peerType
             });
+            
+            // Start keepalive heartbeat (send ping every 20 seconds to prevent timeout)
+            this.heartbeatInterval = setInterval(() => {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    try {
+                        this.ws.send(JSON.stringify({ type: 'ping' }));
+                    } catch (error) {
+                        console.error('Error sending heartbeat:', error);
+                    }
+                }
+            }, 20000); // 20 seconds
         };
         
         this.ws.onmessage = (event) => {
@@ -150,6 +161,11 @@ class SignalingClient {
         this.ws.onclose = () => {
             console.log('WebSocket disconnected');
             this.connected = false;
+            // Clear heartbeat interval
+            if (this.heartbeatInterval) {
+                clearInterval(this.heartbeatInterval);
+                this.heartbeatInterval = null;
+            }
             this.emit('disconnect');
         };
     }
@@ -187,6 +203,11 @@ class SignalingClient {
                 
             case 'mobile_disconnected':
                 this.emit('peer_disconnected', 'mobile');
+                break;
+                
+            case 'pong':
+                // Server responded to our ping - connection is alive
+                // No action needed, just acknowledge
                 break;
                 
             case 'error':
@@ -293,6 +314,12 @@ class SignalingClient {
      * Disconnect from signaling server
      */
     disconnect() {
+        // Clear heartbeat interval
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+        
         if (this.useSocketIO && this.socket) {
             this.socket.disconnect();
         } else if (this.ws) {

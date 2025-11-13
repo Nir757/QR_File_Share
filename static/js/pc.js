@@ -113,6 +113,13 @@ function initializeSignaling() {
         
         // Set up event handlers
         signalingClient.on('peer_connected', () => {
+            // Cancel any pending disconnection timeout (connection restored)
+            if (disconnectTimeout) {
+                clearTimeout(disconnectTimeout);
+                disconnectTimeout = null;
+            }
+            isDisconnected = false;
+            
             document.getElementById('qr-container').classList.add('hidden');
             document.getElementById('connected-view').classList.remove('hidden');
             initializeWebRTC();
@@ -152,6 +159,13 @@ function initializeSignaling() {
 
 function setupSocketListeners() {
     socket.on('peer_connected', () => {
+        // Cancel any pending disconnection timeout (connection restored)
+        if (disconnectTimeout) {
+            clearTimeout(disconnectTimeout);
+            disconnectTimeout = null;
+        }
+        isDisconnected = false;
+        
         document.getElementById('qr-container').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
@@ -1083,30 +1097,52 @@ function arrayBufferToBase64(buffer) {
 // Disconnection handling
 let isReconnecting = false;
 let reconnectCountdown = null;
+let disconnectTimeout = null;
+let isDisconnected = false;
 
 function handleDisconnection(message) {
-    console.log('Disconnection detected:', message);
-    
-    // Clean up existing connections
-    cleanupConnections();
-    
-    // Show disconnection overlay
-    const overlay = document.getElementById('disconnection-overlay');
-    const messageEl = document.getElementById('disconnection-message');
-    if (overlay && messageEl) {
-        messageEl.textContent = message;
-        overlay.classList.remove('hidden');
+    // If already showing disconnection, don't show again
+    if (isDisconnected) {
+        return;
     }
     
-    // Hide connected view, show QR container
-    document.getElementById('connected-view').classList.add('hidden');
-    document.getElementById('qr-container').classList.remove('hidden');
+    // Clear any existing timeout
+    if (disconnectTimeout) {
+        clearTimeout(disconnectTimeout);
+    }
     
-    // Setup button handlers
-    setupDisconnectionHandlers();
+    // Wait 3 seconds before showing disconnection (in case it's temporary)
+    disconnectTimeout = setTimeout(() => {
+        console.log('Disconnection confirmed after delay:', message);
+        isDisconnected = true;
+        
+        // Clean up existing connections
+        cleanupConnections();
+        
+        // Show disconnection overlay
+        const overlay = document.getElementById('disconnection-overlay');
+        const messageEl = document.getElementById('disconnection-message');
+        if (overlay && messageEl) {
+            messageEl.textContent = message;
+            overlay.classList.remove('hidden');
+        }
+        
+        // Hide connected view, show QR container
+        document.getElementById('connected-view').classList.add('hidden');
+        document.getElementById('qr-container').classList.remove('hidden');
+        
+        // Setup button handlers
+        setupDisconnectionHandlers();
+    }, 3000); // 3 second delay
 }
 
 function cleanupConnections() {
+    // Clear disconnect timeout if exists
+    if (disconnectTimeout) {
+        clearTimeout(disconnectTimeout);
+        disconnectTimeout = null;
+    }
+    
     // Close peer connection
     if (peerConnection) {
         peerConnection.close();
@@ -1143,6 +1179,9 @@ function cleanupConnections() {
     
     // Reset file upload setup flag so handlers can be set up again
     fileUploadSetup = false;
+    
+    // Reset disconnect flag
+    isDisconnected = false;
 }
 
 function setupDisconnectionHandlers() {
@@ -1212,6 +1251,7 @@ function attemptReconnection(countdownEl) {
             
             // Reinitialize signaling
             isReconnecting = false;
+            isDisconnected = false; // Reset disconnect flag on reconnect
             initializeSignaling();
         }
     }, 1000);

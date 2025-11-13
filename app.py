@@ -21,7 +21,14 @@ except ImportError:
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# Increase ping timeout to prevent false disconnections during file picking
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="*", 
+    async_mode='threading',
+    ping_timeout=60,  # Increase timeout to 60 seconds (default is 5)
+    ping_interval=25  # Send ping every 25 seconds to keep connection alive
+)
 
 # Get signaling server URL from environment variable (for cross-network P2P support)
 # Set this to your Railway signaling server URL, e.g., 'wss://your-app.up.railway.app'

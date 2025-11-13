@@ -82,6 +82,13 @@ function initializeSignaling() {
         
         // Set up event handlers
         signalingClient.on('peer_connected', () => {
+            // Cancel any pending disconnection timeout (connection restored)
+            if (disconnectTimeout) {
+                clearTimeout(disconnectTimeout);
+                disconnectTimeout = null;
+            }
+            isDisconnected = false;
+            
             console.log('Peer connected!');
             document.getElementById('scanner-view').classList.add('hidden');
             document.getElementById('connecting-view').classList.add('hidden');
@@ -155,6 +162,13 @@ function setupSocketListeners() {
     });
     
     socket.on('peer_connected', () => {
+        // Cancel any pending disconnection timeout (connection restored)
+        if (disconnectTimeout) {
+            clearTimeout(disconnectTimeout);
+            disconnectTimeout = null;
+        }
+        isDisconnected = false;
+        
         console.log('Peer connected!');
         document.getElementById('scanner-view').classList.add('hidden');
         document.getElementById('connecting-view').classList.add('hidden');
@@ -1507,33 +1521,49 @@ function arrayBufferToBase64(buffer) {
 // Disconnection handling
 let isReconnecting = false;
 let reconnectCountdown = null;
+let disconnectTimeout = null;
+let isDisconnected = false;
 
 function handleDisconnection(message) {
-    console.log('Disconnection detected:', message);
-    
-    // Clean up existing connections
-    cleanupConnections();
-    
-    // Show disconnection overlay
-    const overlay = document.getElementById('disconnection-overlay');
-    const messageEl = document.getElementById('disconnection-message');
-    if (overlay && messageEl) {
-        messageEl.textContent = message;
-        overlay.classList.remove('hidden');
+    // If already showing disconnection, don't show again
+    if (isDisconnected) {
+        return;
     }
     
-    // Hide connected view, show connecting view (or scanner if no session)
-    document.getElementById('connected-view').classList.add('hidden');
-    if (sessionId) {
-        document.getElementById('connecting-view').classList.remove('hidden');
-    } else {
-        // Reset scanner view when showing it again
-        resetScannerView();
-        document.getElementById('scanner-view').classList.remove('hidden');
+    // Clear any existing timeout
+    if (disconnectTimeout) {
+        clearTimeout(disconnectTimeout);
     }
     
-    // Setup button handlers
-    setupDisconnectionHandlers();
+    // Wait 3 seconds before showing disconnection (in case it's temporary)
+    disconnectTimeout = setTimeout(() => {
+        console.log('Disconnection confirmed after delay:', message);
+        isDisconnected = true;
+        
+        // Clean up existing connections
+        cleanupConnections();
+        
+        // Show disconnection overlay
+        const overlay = document.getElementById('disconnection-overlay');
+        const messageEl = document.getElementById('disconnection-message');
+        if (overlay && messageEl) {
+            messageEl.textContent = message;
+            overlay.classList.remove('hidden');
+        }
+        
+        // Hide connected view, show connecting view (or scanner if no session)
+        document.getElementById('connected-view').classList.add('hidden');
+        if (sessionId) {
+            document.getElementById('connecting-view').classList.remove('hidden');
+        } else {
+            // Reset scanner view when showing it again
+            resetScannerView();
+            document.getElementById('scanner-view').classList.remove('hidden');
+        }
+        
+        // Setup button handlers
+        setupDisconnectionHandlers();
+    }, 3000); // 3 second delay
 }
 
 function resetScannerView() {
@@ -1576,6 +1606,12 @@ function resetScannerView() {
 }
 
 function cleanupConnections() {
+    // Clear disconnect timeout if exists
+    if (disconnectTimeout) {
+        clearTimeout(disconnectTimeout);
+        disconnectTimeout = null;
+    }
+    
     // Stop QR scanner if running
     if (qrScanner) {
         try {
@@ -1623,6 +1659,9 @@ function cleanupConnections() {
     
     // Reset file input handlers setup flag so handlers can be set up again
     fileInputHandlersSetup = false;
+    
+    // Reset disconnect flag
+    isDisconnected = false;
 }
 
 function setupDisconnectionHandlers() {
@@ -1692,6 +1731,7 @@ function attemptReconnection(countdownEl) {
             
             // Reinitialize signaling if we have a session ID
             isReconnecting = false;
+            isDisconnected = false; // Reset disconnect flag on reconnect
             if (sessionId) {
                 // Show connecting view
                 document.getElementById('scanner-view').classList.add('hidden');
