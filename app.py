@@ -67,7 +67,9 @@ def get_local_ip():
 @app.route('/')
 def index():
     """PC side - shows QR code"""
-    return render_template('pc.html', signaling_server_url=SIGNALING_SERVER_URL)
+    return render_template('pc.html', 
+        signaling_server_url=SIGNALING_SERVER_URL,
+        public_app_url=PUBLIC_APP_URL)
 
 @app.route('/mobile')
 def mobile():

@@ -388,6 +388,32 @@ body::before {
     transform: translateY(0);
 }
 
+.btn-folder {
+    background: white;
+    color: #667eea;
+    border: 1.5px solid #667eea;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+    display: inline-block;
+    box-shadow: 0 1px 4px rgba(102, 126, 234, 0.15);
+}
+
+.btn-folder:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(102, 126, 234, 0.25);
+    border-color: #667eea;
+}
+
+.btn-folder:active {
+    transform: translateY(0);
+}
+
 #file-input {
     display: none;
 }

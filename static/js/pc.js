@@ -15,11 +15,58 @@ const CHUNK_SIZE = 200 * 1024; // 200KB chunks (safe for WebRTC)
 // Signaling client for cross-network P2P support
 let signalingClient = null;
 
+// Mode: 'railway' (cross-network) or 'local' (LAN)
+let currentMode = 'railway'; // Default to cross-network
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', async () => {
+    // Check if we're on Railway URL or localhost
+    if (window.location.hostname.includes('railway.app') || window.location.hostname.includes('ngrok.io')) {
+        currentMode = 'railway';
+    } else {
+        currentMode = 'local';
+    }
+    updateModeUI();
     await generateSession();
     initializeSignaling();
 });
+
+// Toggle between Railway (cross-network) and Local (LAN) mode
+function toggleMode() {
+    if (currentMode === 'railway') {
+        // Switch to local mode - redirect to localhost
+        if (confirm('Switch to LAN Mode? This will redirect to local server (localhost:5000).\n\nLAN Mode only works on the same network.')) {
+            window.location.href = 'http://localhost:5000';
+        }
+    } else {
+        // Switch to Railway mode - redirect to Railway URL
+        const railwayUrl = window.RAILWAY_APP_URL || 'https://flask-app-production-10c0.up.railway.app';
+        if (confirm('Switch to Cross-Network Mode? This will redirect to Railway.\n\nCross-Network Mode works from anywhere.')) {
+            window.location.href = railwayUrl;
+        }
+    }
+}
+
+// Update mode UI
+function updateModeUI() {
+    const modeBtn = document.getElementById('mode-switch-btn');
+    const modeIndicator = document.getElementById('mode-indicator');
+    const modeText = document.getElementById('mode-text');
+    const modeInfo = document.getElementById('mode-info');
+    const modeInfoText = document.getElementById('mode-info-text');
+    
+    if (currentMode === 'railway') {
+        if (modeIndicator) modeIndicator.textContent = '🌐';
+        if (modeText) modeText.textContent = 'Cross-Network';
+        if (modeInfoText) modeInfoText.textContent = '🌐 Cross-Network Mode: Works from anywhere';
+        if (modeInfo) modeInfo.style.background = '#e3f2fd';
+    } else {
+        if (modeIndicator) modeIndicator.textContent = '🏠';
+        if (modeText) modeText.textContent = 'LAN Mode';
+        if (modeInfoText) modeInfoText.textContent = '🏠 LAN Mode: Same network only';
+        if (modeInfo) modeInfo.style.background = '#fff3e0';
+    }
+}
 
 async function generateSession() {
     try {

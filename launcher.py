@@ -3,6 +3,7 @@
 QR File Share Launcher
 First launch: Installs requirements and opens the app
 Subsequent launches: Just opens the app
+Opens Railway URL by default for cross-network support
 """
 
 import os
@@ -11,6 +12,13 @@ import subprocess
 import webbrowser
 import time
 from pathlib import Path
+
+# Try to import config, fall back to defaults if not available
+try:
+    from config import RAILWAY_APP_URL, DEFAULT_MODE
+except ImportError:
+    RAILWAY_APP_URL = ''
+    DEFAULT_MODE = 'railway'
 
 def check_requirements_installed():
     """Check if requirements are already installed"""
@@ -70,6 +78,25 @@ def main():
     print("=" * 50)
     print("QR File Share Launcher")
     print("=" * 50)
+    
+    # Check mode and open appropriate URL
+    if DEFAULT_MODE == 'railway' and RAILWAY_APP_URL:
+        print(f"\n🌐 Cross-Network Mode")
+        print(f"Opening Railway app: {RAILWAY_APP_URL}")
+        print(f"\nTo use LAN mode instead:")
+        print(f"  1. Edit config.py and set DEFAULT_MODE = 'local'")
+        print(f"  2. Or click 'Switch to LAN Mode' button in the app")
+        print("\nOpening browser...")
+        time.sleep(1)
+        webbrowser.open(RAILWAY_APP_URL)
+        print("\n✅ Browser opened! The app is running on Railway.")
+        print("You can close this window.\n")
+        input("Press Enter to exit...")
+        return
+    
+    # Local mode - run app.py
+    print("\n🏠 LAN Mode (Local Network Only)")
+    print("Starting local server...\n")
     
     # Check if requirements are installed
     if not check_requirements_installed():

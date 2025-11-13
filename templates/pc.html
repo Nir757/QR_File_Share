@@ -13,6 +13,8 @@
         // If set, will use Node.js WebSocket signaling server (cross-network P2P)
         // If empty, will use Socket.IO (existing LAN mode)
         window.SIGNALING_SERVER_URL = '{{ signaling_server_url or "" }}';
+        // Railway app URL for mode switching
+        window.RAILWAY_APP_URL = '{{ public_app_url or "" }}';
     </script>
 </head>
 <body>
@@ -49,6 +51,12 @@
                     </div>
                     <h1>QR File Share</h1>
                 </div>
+                <div class="mode-switcher" style="margin-left: auto;">
+                    <button id="mode-switch-btn" class="btn-mode-switch" onclick="toggleMode()">
+                        <span id="mode-indicator">🌐</span>
+                        <span id="mode-text">Cross-Network</span>
+                    </button>
+                </div>
             </div>
             
             <div class="card-body">
@@ -58,6 +66,9 @@
                 </div>
                 
                 <div id="qr-container" class="qr-container hidden">
+                    <div id="mode-info" style="margin-bottom: 15px; padding: 10px; background: #e3f2fd; border-radius: 8px; font-size: 0.9em;">
+                        <span id="mode-info-text">🌐 Cross-Network Mode: Works from anywhere</span>
+                    </div>
                     <p class="qr-preview-label">QR Code Preview</p>
                     <div id="qr-code"></div>
                     <p class="status-text" id="status">Waiting for mobile device to connect...</p>
