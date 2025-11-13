@@ -261,41 +261,36 @@ function initializeWebRTC() {
             { urls: 'stun:stun3.l.google.com:19302' },
             { urls: 'stun:stun4.l.google.com:19302' },
             
-            // Metered TURN servers (free, reliable)
+            // Your Metered TURN servers (dedicated credentials - 500MB/month free)
             { 
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
+                urls: 'turn:a.relay.metered.ca:443',
+                username: '84935d20f8c00f803ff0c22b',
+                credential: 'ouvgtpLR6gp1Jf5m'
             },
+            { 
+                urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+                username: '84935d20f8c00f803ff0c22b',
+                credential: 'ouvgtpLR6gp1Jf5m'
+            },
+            { 
+                urls: 'turn:a.relay.metered.ca:80',
+                username: '84935d20f8c00f803ff0c22b',
+                credential: 'ouvgtpLR6gp1Jf5m'
+            },
+            { 
+                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                username: '84935d20f8c00f803ff0c22b',
+                credential: 'ouvgtpLR6gp1Jf5m'
+            },
+            
+            // Public Metered servers as backup
             { 
                 urls: 'turn:openrelay.metered.ca:443',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             },
             { 
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            
-            // Alternative free TURN servers
-            { 
-                urls: 'turn:a.relay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:a.relay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+                urls: 'turn:openrelay.metered.ca:80',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             }
