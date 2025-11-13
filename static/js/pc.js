@@ -33,11 +33,33 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // Toggle between Railway (cross-network) and Local (LAN) mode
 // Make it globally accessible for onclick handler
-window.toggleMode = function toggleMode() {
+window.toggleMode = async function toggleMode() {
     if (currentMode === 'railway') {
-        // Switch to local mode - redirect to localhost
-        if (confirm('Switch to LAN Mode? This will redirect to local server (localhost:5000).\n\nLAN Mode only works on the same network.')) {
-            window.location.href = 'http://localhost:5000';
+        // Switch to local mode - check if local server is running first
+        if (confirm('Switch to LAN Mode? This will redirect to local server (localhost:5000).\n\nLAN Mode only works on the same network.\n\n⚠️ Make sure the local server is running!')) {
+            // Check if local server is reachable
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+                
+                const response = await fetch('http://localhost:5000/api/health-check', {
+                    method: 'GET',
+                    signal: controller.signal,
+                    cache: 'no-cache'
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    // Server is running, redirect
+                    window.location.href = 'http://localhost:5000';
+                } else {
+                    throw new Error('Server not responding');
+                }
+            } catch (error) {
+                // Server is not reachable
+                alert('❌ Local server is not running!\n\nTo use LAN Mode:\n\n1. Open a terminal/command prompt\n2. Navigate to the project folder:\n   cd "C:\\Users\\Nir Paniri\\.cursor\\dev\\freetime\\qrfileshare"\n3. Run: python launcher.py\n\nOr simply run: python app.py\n\nThen click the LAN Mode button again.');
+            }
         }
     } else {
         // Switch to Railway mode - redirect to Railway URL
