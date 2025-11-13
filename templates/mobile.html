@@ -63,6 +63,11 @@
                 <div id="connecting-view" class="loading hidden">
                     <div class="spinner"></div>
                     <p>Connecting to computer...</p>
+                    <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                        <a href="/debug?session={{ request.args.get('session', '') }}" style="color: #667eea; text-decoration: underline;">
+                            🔍 Debug Info
+                        </a>
+                    </p>
                 </div>
                 
                 <div id="connected-view" class="connected-view hidden">

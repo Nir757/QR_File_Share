@@ -19,6 +19,12 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # Leave empty to use Socket.IO (existing LAN mode)
 SIGNALING_SERVER_URL = os.environ.get('SIGNALING_SERVER_URL', 'wss://qrfileshare-production.up.railway.app')
 
+# Public URL for Flask app (for cross-network access)
+# Set this if you deploy Flask app to Railway/Heroku, or use ngrok
+# Example: 'https://your-flask-app.up.railway.app' or 'https://abc123.ngrok.io'
+# Leave empty to use local IP (LAN only)
+PUBLIC_APP_URL = os.environ.get('PUBLIC_APP_URL', '')
+
 # Store active sessions
 sessions = {}
 
@@ -53,23 +59,37 @@ def mobile():
     """Mobile side - QR scanner"""
     return render_template('mobile.html', signaling_server_url=SIGNALING_SERVER_URL)
 
+@app.route('/debug')
+def debug():
+    """Debug page for troubleshooting"""
+    return render_template('debug.html')
+
 @app.route('/api/generate-session', methods=['POST'])
 def generate_session():
     """Generate a new session and QR code"""
     session_id = str(uuid.uuid4())
     
-    # Get the base URL - use local IP if accessing via localhost
-    host_url = request.host_url
-    if '127.0.0.1' in host_url or 'localhost' in host_url:
+    # Get the base URL for QR code
+    # Priority: PUBLIC_APP_URL > local IP > request.host_url
+    if PUBLIC_APP_URL:
+        # Use public URL for cross-network access
+        host_url = PUBLIC_APP_URL.rstrip('/') + '/'
+        print(f"Using public URL for QR code: {host_url}")
+    elif '127.0.0.1' in request.host_url or 'localhost' in request.host_url:
+        # Use local IP for LAN access
         local_ip = get_local_ip()
         if local_ip:
-            # Replace localhost/127.0.0.1 with actual IP
             host_url = f"http://{local_ip}:5000/"
+            print(f"Using local IP for QR code: {host_url}")
         else:
             # If we can't get IP, show a message (handled in frontend)
             return jsonify({
-                'error': 'Could not determine local IP address. Please access this page using your local IP address directly.'
+                'error': 'Could not determine local IP address. Please set PUBLIC_APP_URL environment variable for cross-network access, or access this page using your local IP address directly.'
             }), 500
+    else:
+        # Use the request host URL (might be a public URL already)
+        host_url = request.host_url
+        print(f"Using request host URL for QR code: {host_url}")
     
     # Create QR code with session URL
     qr_url = f"{host_url}mobile?session={session_id}"
