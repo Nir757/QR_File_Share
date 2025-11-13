@@ -110,49 +110,51 @@ The app will:
 - **Port 5000 already in use**: Change the port in `app.py` or stop the other service
 - **Firewall blocking**: Allow Python through your firewall
 
-## Known Issues
+## Recent Updates (v1.2.0)
 
-### ⚠️ Cross-Network Mode May Not Work on Some Networks
+### ✅ Improved Cross-Network Connectivity
 
-**Status:** Under Investigation
+**Status:** FIXED (as of v1.2.0)
 
-Some users have reported that **Cross-Network Mode** gets stuck on "Queued" or fails to establish a connection, while **LAN Mode works perfectly**. This appears to be network/environment-specific rather than a code bug.
+Previous versions had unreliable cross-network connections due to overloaded free TURN servers. This has been **significantly improved** in v1.2.0!
 
-**Possible Causes:**
+**What Changed:**
+- ✅ Replaced unreliable public TURN servers with dedicated Metered credentials
+- ✅ Added multiple TURN server configurations (TCP/UDP, ports 80/443)
+- ✅ Better NAT traversal success rate
+- ✅ Reduced connection timeouts
 
-1. **Router WiFi Isolation (Most Common)**
-   - If you're connected via WiFi, your router may have "AP Isolation" or "Client Isolation" enabled
-   - This blocks WiFi devices from communicating with each other
-   - **Solution:** Connect via Ethernet, or disable AP/Client Isolation in your router settings
+**Cross-Network Mode should now work reliably** for most users!
 
-2. **TURN Server Blocking**
-   - Some corporate networks, ISPs, or firewalls block TURN relay servers
-   - The app uses free TURN servers which may be blocked or unreliable
-   - **Workaround:** Use LAN Mode when devices are on the same network
+### Known Remaining Issues
 
-3. **Windows Firewall / Antivirus**
-   - Security software may block WebRTC connections on some PCs
-   - **Solution:** Temporarily disable firewall/antivirus to test
+**If Cross-Network Mode still doesn't work:**
 
-4. **VPN Interference**
-   - VPNs can interfere with WebRTC peer-to-peer connections
-   - **Solution:** Disconnect VPN temporarily when using the app
+1. **Router WiFi Isolation**
+   - Your router may have "AP Isolation" or "Client Isolation" enabled
+   - **Solution:** Connect via Ethernet, or disable AP/Client Isolation in router settings
+
+2. **Corporate/Strict Firewalls**
+   - Some corporate networks block all WebRTC/TURN traffic
+   - **Workaround:** Use LAN Mode when on the same network
+
+3. **VPN Interference**
+   - VPNs can interfere with WebRTC connections
+   - **Solution:** Disconnect VPN temporarily
 
 **Recommended:**
-- ✅ **Use LAN Mode** when devices are on the same WiFi - it's faster and more reliable
-- ✅ **Check router WiFi isolation settings** if LAN mode doesn't work on WiFi but works on Ethernet
-- ✅ **Cross-Network Mode works fine on most home networks** - the issue appears in specific network configurations
+- ✅ **Try Cross-Network Mode first** - it should work now!
+- ✅ **Use LAN Mode as backup** - faster when on same network
+- ✅ **Check browser console** - look for "relay" ICE candidates
 
-If you experience issues, please report them with:
-- Your network type (home WiFi, corporate, mobile hotspot, etc.)
-- Connection method (WiFi vs Ethernet)
-- Console logs showing ICE candidate counts
+## Technical Details
 
-## Notes
-
-- The app uses Google's STUN servers for NAT traversal
-- Large files may take time to transfer depending on network speed
-- Both devices need to be connected to the internet (for cross-network mode)
+- Uses **WebRTC** for peer-to-peer file transfer (end-to-end encrypted)
+- **STUN servers**: Google's public STUN for NAT discovery
+- **TURN servers**: Metered (dedicated credentials for reliable NAT traversal)
+- **Signaling**: Railway-hosted WebSocket server for cross-network mode
+- Large files transferred in 200KB chunks for reliability
+- See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for full technical details
 
 ## Requirements
 
@@ -160,13 +162,17 @@ If you experience issues, please report them with:
 - Modern web browser with WebRTC support
 - Camera access on mobile device for QR scanning
 
-## For Developers
+## Documentation
 
-If you want to set up cross-network mode or deploy your own instance:
+### For Users
+- [Architecture Overview](docs/ARCHITECTURE.md) - How everything works, what services are used
+- [Troubleshooting Guide](docs/P2P_SETUP.md) - Common issues and solutions
 
+### For Developers
 - [Deploy Flask App to Railway](docs/FLASK_RAILWAY_DEPLOYMENT.md)
 - [Deploy Signaling Server to Railway](docs/SIGNALING_SERVER_DEPLOYMENT.md)
 - [P2P Setup Guide](docs/P2P_SETUP.md)
+- [Quick Start P2P](docs/QUICK_START_P2P.md)
 
 ## License
 
