@@ -32,7 +32,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Toggle between Railway (cross-network) and Local (LAN) mode
-function toggleMode() {
+// Make it globally accessible for onclick handler
+window.toggleMode = function toggleMode() {
     if (currentMode === 'railway') {
         // Switch to local mode - redirect to localhost
         if (confirm('Switch to LAN Mode? This will redirect to local server (localhost:5000).\n\nLAN Mode only works on the same network.')) {
