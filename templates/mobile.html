@@ -7,6 +7,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+    <!-- WebRTC Signaling Client (for cross-network P2P support) -->
+    <script src="{{ url_for('static', filename='js/signaling-client.js') }}"></script>
+    <script>
+        // Pass signaling server URL to JavaScript
+        // If set, will use Node.js WebSocket signaling server (cross-network P2P)
+        // If empty, will use Socket.IO (existing LAN mode)
+        window.SIGNALING_SERVER_URL = '{{ signaling_server_url or "" }}';
+    </script>
 </head>
 <body>
     <!-- Background decorative icons -->
@@ -83,6 +91,10 @@
                                 <button id="reject-all-btn" class="btn-reject-all" style="display: none;">Reject All</button>
                                 <button id="download-all-btn" class="btn-secondary" style="display: none;">Download All</button>
                             </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px; font-size: 0.9em;">
+                            <span id="download-folder-indicator" style="color: #666;">Default download location</span>
+                            <button id="change-folder-btn" class="btn-folder" onclick="changeDownloadFolder()">Change Folder</button>
                         </div>
                         <div id="received-files" class="file-list"></div>
                         <div id="no-files-message" class="no-files-message">

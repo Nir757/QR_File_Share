@@ -14,6 +14,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
+# Get signaling server URL from environment variable (for cross-network P2P support)
+# Set this to your Railway signaling server URL, e.g., 'wss://your-app.up.railway.app'
+# Leave empty to use Socket.IO (existing LAN mode)
+SIGNALING_SERVER_URL = os.environ.get('SIGNALING_SERVER_URL', '')
+
 # Store active sessions
 sessions = {}
 
@@ -41,12 +46,12 @@ def get_local_ip():
 @app.route('/')
 def index():
     """PC side - shows QR code"""
-    return render_template('pc.html')
+    return render_template('pc.html', signaling_server_url=SIGNALING_SERVER_URL)
 
 @app.route('/mobile')
 def mobile():
     """Mobile side - QR scanner"""
-    return render_template('mobile.html')
+    return render_template('mobile.html', signaling_server_url=SIGNALING_SERVER_URL)
 
 @app.route('/api/generate-session', methods=['POST'])
 def generate_session():

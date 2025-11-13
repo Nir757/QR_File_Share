@@ -1,0 +1,25 @@
+{
+  "name": "qrfileshare-signaling-server",
+  "version": "1.0.0",
+  "description": "WebRTC Signaling Server for QR File Share P2P support",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "webrtc",
+    "signaling",
+    "websocket",
+    "p2p"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
+

@@ -6,6 +6,14 @@
     <title>QR File Share - PC</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <!-- WebRTC Signaling Client (for cross-network P2P support) -->
+    <script src="{{ url_for('static', filename='js/signaling-client.js') }}"></script>
+    <script>
+        // Pass signaling server URL to JavaScript
+        // If set, will use Node.js WebSocket signaling server (cross-network P2P)
+        // If empty, will use Socket.IO (existing LAN mode)
+        window.SIGNALING_SERVER_URL = '{{ signaling_server_url or "" }}';
+    </script>
 </head>
 <body>
     <!-- Background decorative icons -->
