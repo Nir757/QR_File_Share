@@ -12,10 +12,13 @@ let shouldStopQueue = false;
 let receivingChunks = {}; // Track file chunks being received {fileId: {chunks: [], totalChunks, fileName, fileSize, fileType}}
 const CHUNK_SIZE = 200 * 1024; // 200KB chunks (safe for WebRTC)
 
+// Signaling client for cross-network P2P support
+let signalingClient = null;
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', async () => {
     await generateSession();
-    setupSocketListeners();
+    initializeSignaling();
 });
 
 async function generateSession() {
@@ -54,8 +57,7 @@ async function generateSession() {
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('qr-container').classList.remove('hidden');
         
-        // Join socket room
-        socket.emit('pc_join', { session_id: sessionId });
+        // Signaling will be initialized after session is generated
     } catch (error) {
         console.error('Error generating session:', error);
         document.getElementById('loading').innerHTML = `
@@ -69,6 +71,53 @@ async function generateSession() {
                 </ul>
             </div>
         `;
+    }
+}
+
+// Initialize signaling (Socket.IO or WebSocket)
+function initializeSignaling() {
+    // Check if we should use the Node.js WebSocket signaling server
+    if (window.SIGNALING_SERVER_URL && window.SIGNALING_SERVER_URL.trim() !== '') {
+        console.log('Using Node.js WebSocket signaling server:', window.SIGNALING_SERVER_URL);
+        signalingClient = new SignalingClient(
+            window.SIGNALING_SERVER_URL,
+            sessionId,
+            'pc'
+        );
+        
+        // Set up event handlers
+        signalingClient.on('peer_connected', () => {
+            document.getElementById('qr-container').classList.add('hidden');
+            document.getElementById('connected-view').classList.remove('hidden');
+            initializeWebRTC();
+        });
+        
+        signalingClient.on('webrtc_offer', async (offer) => {
+            await handleOffer(offer);
+        });
+        
+        signalingClient.on('webrtc_answer', async (answer) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        });
+        
+        signalingClient.on('ice_candidate', async (candidate) => {
+            if (candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        });
+        
+        signalingClient.on('peer_disconnected', () => {
+            alert('Mobile device disconnected');
+            location.reload();
+        });
+        
+        signalingClient.connect();
+    } else {
+        // Fall back to existing Socket.IO implementation (LAN mode)
+        console.log('Using Socket.IO signaling (LAN mode)');
+        setupSocketListeners();
+        // Join socket room for Socket.IO
+        socket.emit('pc_join', { session_id: sessionId });
     }
 }
 
@@ -117,10 +166,14 @@ function initializeWebRTC() {
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-            socket.emit('ice_candidate', {
-                session_id: sessionId,
-                candidate: event.candidate
-            });
+            if (signalingClient) {
+                signalingClient.sendIceCandidate(event.candidate);
+            } else {
+                socket.emit('ice_candidate', {
+                    session_id: sessionId,
+                    candidate: event.candidate
+                });
+            }
         }
     };
     
@@ -130,10 +183,14 @@ function initializeWebRTC() {
             return peerConnection.setLocalDescription(offer);
         })
         .then(() => {
-            socket.emit('webrtc_offer', {
-                session_id: sessionId,
-                offer: peerConnection.localDescription
-            });
+            if (signalingClient) {
+                signalingClient.sendOffer(peerConnection.localDescription);
+            } else {
+                socket.emit('webrtc_offer', {
+                    session_id: sessionId,
+                    offer: peerConnection.localDescription
+                });
+            }
         })
         .catch(error => console.error('Error creating offer:', error));
 }
@@ -147,10 +204,14 @@ async function handleOffer(offer) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     
-    socket.emit('webrtc_answer', {
-        session_id: sessionId,
-        answer: peerConnection.localDescription
-    });
+    if (signalingClient) {
+        signalingClient.sendAnswer(peerConnection.localDescription);
+    } else {
+        socket.emit('webrtc_answer', {
+            session_id: sessionId,
+            answer: peerConnection.localDescription
+        });
+    }
 }
 
 function setupDataChannel() {

@@ -13,13 +13,16 @@ let queueProcessingTimeout = null;
 let shouldStopQueue = false;
 let receivingChunks = {}; // Track file chunks being received {fileId: {chunks: [], totalChunks, fileName, fileSize, fileType}}
 const CHUNK_SIZE = 200 * 1024; // 200KB chunks (safe for WebRTC)
+let downloadFolderHandle = null; // Store the selected download folder handle for the session
+
+// Signaling client for cross-network P2P support
+let signalingClient = null;
 
 // Get session ID from URL
 const urlParams = new URLSearchParams(window.location.search);
 sessionId = urlParams.get('session');
 
 window.addEventListener('DOMContentLoaded', () => {
-    setupSocketListeners();
     setupFileHandlers();
     
     if (sessionId) {
@@ -27,11 +30,8 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('scanner-view').classList.add('hidden');
         document.getElementById('connecting-view').classList.remove('hidden');
         
-        // If already connected, join immediately
-        if (socket.connected) {
-            console.log('Socket already connected, joining session:', sessionId);
-            socket.emit('mobile_join', { session_id: sessionId });
-        }
+        // Initialize signaling (will use WebSocket or Socket.IO)
+        initializeSignaling();
     } else {
         // No session ID - show scanner
         console.log('No session ID in URL, showing scanner');
@@ -69,6 +69,75 @@ function waitForQrScanner() {
     }, 100);
 }
 
+// Initialize signaling (Socket.IO or WebSocket)
+function initializeSignaling() {
+    // Check if we should use the Node.js WebSocket signaling server
+    if (window.SIGNALING_SERVER_URL && window.SIGNALING_SERVER_URL.trim() !== '') {
+        console.log('Using Node.js WebSocket signaling server:', window.SIGNALING_SERVER_URL);
+        signalingClient = new SignalingClient(
+            window.SIGNALING_SERVER_URL,
+            sessionId,
+            'mobile'
+        );
+        
+        // Set up event handlers
+        signalingClient.on('peer_connected', () => {
+            console.log('Peer connected!');
+            document.getElementById('scanner-view').classList.add('hidden');
+            document.getElementById('connecting-view').classList.add('hidden');
+            document.getElementById('connected-view').classList.remove('hidden');
+            initializeWebRTC();
+            setupDownloadAllButton();
+            updateFolderIndicator();
+            if (!('showDirectoryPicker' in window)) {
+                const changeFolderBtn = document.getElementById('change-folder-btn');
+                if (changeFolderBtn) {
+                    changeFolderBtn.style.display = 'none';
+                }
+            }
+        });
+        
+        signalingClient.on('webrtc_offer', async (offer) => {
+            await handleOffer(offer);
+        });
+        
+        signalingClient.on('webrtc_answer', async (answer) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        });
+        
+        signalingClient.on('ice_candidate', async (candidate) => {
+            if (candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        });
+        
+        signalingClient.on('peer_disconnected', () => {
+            alert('PC disconnected');
+            location.reload();
+        });
+        
+        signalingClient.on('error', (error) => {
+            console.error('Signaling error:', error);
+            document.getElementById('connecting-view').innerHTML = `
+                <div style="color: #d32f2f; padding: 20px;">
+                    <h3>Connection Error</h3>
+                    <p>Failed to connect to signaling server. Please check your network connection.</p>
+                </div>
+            `;
+        });
+        
+        signalingClient.connect();
+    } else {
+        // Fall back to existing Socket.IO implementation (LAN mode)
+        console.log('Using Socket.IO signaling (LAN mode)');
+        setupSocketListeners();
+        // Join socket room for Socket.IO
+        if (socket.connected) {
+            socket.emit('mobile_join', { session_id: sessionId });
+        }
+    }
+}
+
 function setupSocketListeners() {
     socket.on('connect', () => {
         console.log('Socket connected');
@@ -90,6 +159,14 @@ function setupSocketListeners() {
         initializeWebRTC();
         // Setup button handlers when connected view is shown
         setupDownloadAllButton();
+        // Initialize folder indicator and hide button if API not available
+        updateFolderIndicator();
+        if (!('showDirectoryPicker' in window)) {
+            const changeFolderBtn = document.getElementById('change-folder-btn');
+            if (changeFolderBtn) {
+                changeFolderBtn.style.display = 'none';
+            }
+        }
         // setupFileInputHandlers() will be called when data channel opens
     });
     
@@ -358,10 +435,14 @@ function initializeWebRTC() {
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-            socket.emit('ice_candidate', {
-                session_id: sessionId,
-                candidate: event.candidate
-            });
+            if (signalingClient) {
+                signalingClient.sendIceCandidate(event.candidate);
+            } else {
+                socket.emit('ice_candidate', {
+                    session_id: sessionId,
+                    candidate: event.candidate
+                });
+            }
         }
     };
 }
@@ -371,10 +452,14 @@ async function handleOffer(offer) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     
-    socket.emit('webrtc_answer', {
-        session_id: sessionId,
-        answer: peerConnection.localDescription
-    });
+    if (signalingClient) {
+        signalingClient.sendAnswer(peerConnection.localDescription);
+    } else {
+        socket.emit('webrtc_answer', {
+            session_id: sessionId,
+            answer: peerConnection.localDescription
+        });
+    }
 }
 
 function setupDataChannel() {
@@ -662,7 +747,89 @@ function setupDownloadAllButton() {
 // Setup when DOM is ready (mobile.js already has DOMContentLoaded, so use it)
 // This will be called from the existing DOMContentLoaded handler
 
-function downloadFile(file) {
+async function downloadFile(file) {
+    // Check if File System Access API is available (Android Chrome)
+    // We need showDirectoryPicker for folder selection
+    if ('showDirectoryPicker' in window || 'showSaveFilePicker' in window) {
+        try {
+            await downloadFileWithPicker(file);
+        } catch (error) {
+            // User cancelled or error occurred, fall back to default download
+            if (error.name !== 'AbortError') {
+                console.error('Error using file picker, falling back to default download:', error);
+            }
+            downloadFileDefault(file);
+        }
+    } else {
+        // File System Access API not available, use default download
+        downloadFileDefault(file);
+    }
+}
+
+async function downloadFileWithPicker(file) {
+    const blob = new Blob([base64ToArrayBuffer(file.data)], { type: file.type });
+    
+    // If we have a saved folder handle, save directly to that folder
+    if (downloadFolderHandle) {
+        try {
+            await saveFileToFolder(file, blob, downloadFolderHandle);
+            return;
+        } catch (error) {
+            // Folder handle might be invalid (e.g., user revoked permission)
+            console.warn('Saved folder handle invalid, prompting for new folder:', error);
+            downloadFolderHandle = null;
+            // Fall through to prompt for folder selection
+        }
+    }
+    
+    // No saved folder or handle invalid, prompt user to select a folder
+    try {
+        // Use showDirectoryPicker to let user select a folder
+        const folderHandle = await window.showDirectoryPicker();
+        downloadFolderHandle = folderHandle;
+        
+        // Save the file to the selected folder
+        await saveFileToFolder(file, blob, folderHandle);
+        
+        // Update folder indicator
+        updateFolderIndicator();
+    } catch (error) {
+        // User cancelled directory picker, fall back to file picker
+        if (error.name === 'AbortError') {
+            // User cancelled, use default download instead
+            throw error;
+        }
+        // Other error, try file picker as fallback
+        const options = {
+            suggestedName: file.name,
+            types: [{
+                description: 'All Files',
+                accept: {
+                    'application/octet-stream': ['.*']
+                }
+            }]
+        };
+        
+        const fileHandle = await window.showSaveFilePicker(options);
+        await saveFileToFileHandle(file, blob, fileHandle);
+    }
+}
+
+async function saveFileToFileHandle(file, blob, fileHandle) {
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+}
+
+async function saveFileToFolder(file, blob, folderHandle) {
+    // Try to get or create the file in the folder
+    const fileHandle = await folderHandle.getFileHandle(file.name, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+}
+
+function downloadFileDefault(file) {
     const blob = new Blob([base64ToArrayBuffer(file.data)], { type: file.type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -670,6 +837,58 @@ function downloadFile(file) {
     a.download = file.name;
     a.click();
     URL.revokeObjectURL(url);
+}
+
+function clearDownloadFolder() {
+    downloadFolderHandle = null;
+    updateFolderIndicator();
+}
+
+async function changeDownloadFolder() {
+    // Check if File System Access API is available
+    if (!('showDirectoryPicker' in window)) {
+        alert('Folder selection is not available in this browser. Please use Chrome on Android.');
+        return;
+    }
+    
+    try {
+        const folderHandle = await window.showDirectoryPicker();
+        downloadFolderHandle = folderHandle;
+        updateFolderIndicator();
+        // Show success message
+        const indicator = document.getElementById('download-folder-indicator');
+        if (indicator) {
+            const originalText = indicator.textContent;
+            indicator.textContent = 'Folder selected!';
+            indicator.style.color = '#4caf50';
+            setTimeout(() => {
+                updateFolderIndicator();
+            }, 2000);
+        }
+    } catch (error) {
+        if (error.name !== 'AbortError') {
+            console.error('Error selecting folder:', error);
+            alert('Error selecting folder. Please try again.');
+        }
+        // User cancelled, do nothing
+    }
+}
+
+// Make functions globally accessible
+window.clearDownloadFolder = clearDownloadFolder;
+window.changeDownloadFolder = changeDownloadFolder;
+
+function updateFolderIndicator() {
+    const indicator = document.getElementById('download-folder-indicator');
+    if (indicator) {
+        if (downloadFolderHandle) {
+            indicator.textContent = 'Custom folder selected';
+            indicator.style.color = '#4caf50';
+        } else {
+            indicator.textContent = 'Default download location';
+            indicator.style.color = '#666';
+        }
+    }
 }
 
 function base64ToArrayBuffer(base64) {
