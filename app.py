@@ -33,7 +33,8 @@ socketio = SocketIO(
 # Get signaling server URL from environment variable (for cross-network P2P support)
 # Set this to your Railway signaling server URL, e.g., 'wss://your-app.up.railway.app'
 # Leave empty to use Socket.IO (existing LAN mode)
-_signaling_url_raw = os.environ.get('SIGNALING_SERVER_URL', 'wss://qrfileshare-production.up.railway.app')
+# DEFAULT: Empty string for LAN mode (works on same network)
+_signaling_url_raw = os.environ.get('SIGNALING_SERVER_URL', '')
 # Clean up if someone accidentally included the variable name in the value
 if 'SIGNALING_SERVER_URL=' in _signaling_url_raw:
     SIGNALING_SERVER_URL = _signaling_url_raw.split('SIGNALING_SERVER_URL=')[-1].strip()
