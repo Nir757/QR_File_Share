@@ -319,7 +319,7 @@ if __name__ == '__main__':
         else:
             # Auto-select Cross-Network Mode after 5 seconds
             print("\n⏱️  Auto-selecting Cross-Network Mode in 5 seconds...")
-            print("   (Press any key to choose manually)")
+            print("   (Press Enter to choose manually)")
             
             choice = None
             user_input = []
@@ -327,8 +327,10 @@ if __name__ == '__main__':
             def get_input():
                 """Get user input in a separate thread"""
                 try:
-                    user_input.append(input("\nEnter choice (1 or 2): ").strip())
-                except EOFError:
+                    # Wait for user input
+                    result = input()
+                    user_input.append(result.strip())
+                except (EOFError, KeyboardInterrupt):
                     pass
             
             # Start input thread
@@ -340,19 +342,20 @@ if __name__ == '__main__':
                 if user_input:
                     choice = user_input[0]
                     break
-                print(f"   {remaining}...", end='\r', flush=True)
+                print(f"   {remaining}...", end='', flush=True)
                 time.sleep(1)
+                if remaining > 1:
+                    print('\r' + ' ' * 20 + '\r', end='', flush=True)
+            
+            # Clear the countdown line
+            print('\r' + ' ' * 20 + '\r', end='', flush=True)
             
             # If no input received, auto-select Cross-Network Mode
-            if choice is None:
+            if choice is None or choice == '':
                 choice = '1'
-                print("\n✅ Auto-selected: Cross-Network Mode (1)")
+                print("✅ Auto-selected: Cross-Network Mode (1)")
             else:
-                print()  # New line after countdown
-            
-            # Default to '1' if empty input
-            if not choice:
-                choice = '1'
+                print(f"✅ Selected: {'Cross-Network Mode' if choice == '1' else 'LAN Mode'} ({choice})")
         
         # Validate choice
         if choice not in ['1', '2']:
