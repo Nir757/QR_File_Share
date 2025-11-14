@@ -51,7 +51,7 @@ python app.py
 The app will:
 - Install dependencies automatically (Windows) or prompt you to install (Mac/Linux)
 - Prompt you to choose a mode:
-  - **🌐 Cross-Network Mode** - Works from anywhere (requires Railway setup - see [For Developers](#for-developers))
+  - **🌐 Cross-Network Mode** - Works from anywhere (Railway server already configured, no setup needed!)
   - **🏠 LAN Mode** - Same network only (works immediately!)
 - Auto-select Cross-Network Mode after 5 seconds (or press Enter to choose manually)
 - Open your browser automatically
@@ -92,8 +92,9 @@ The app will:
 ### Cross-Network Mode
 
 - Works when devices are on different networks
-- Requires Railway deployment (see [For Developers](#for-developers) section)
-- Set up once, use from anywhere
+- Railway signaling server already configured - works out of the box!
+- No setup required for end users
+- (See [For Developers](#for-developers) section if you want to deploy your own instance)
 
 ## Troubleshooting
 
