@@ -24,11 +24,21 @@ A web-based file sharing application that allows you to share files between your
 
 ### Prerequisites
 
-- Python 3.7+ installed on your PC
+- Python 3.7+ installed on your PC (only if running locally)
 - Modern web browser with WebRTC support
 - Camera access on mobile device for QR scanning
 
-### Step 1: Clone or Download
+### Option 1: Use Deployed Version (Easiest - No Installation Required)
+
+**Skip all installation steps!** Simply open this URL on your PC:
+
+**🌐 [https://flask-app-production-10c0.up.railway.app/](https://flask-app-production-10c0.up.railway.app/)**
+
+The app will open directly in your browser. Then proceed to [Step 3: Connect Your Mobile Device](#step-3-connect-your-mobile-device) below.
+
+### Option 2: Run Locally
+
+#### Step 1: Clone or Download
 
 ```bash
 git clone https://github.com/Nir757/QR_File_Share.git
@@ -37,7 +47,7 @@ cd QR_File_Share/qrfileshare
 
 Or download the ZIP file from GitHub and extract it.
 
-### Step 2: Run the App
+#### Step 2: Run the App
 
 **Windows Users:**
 - Double-click `launcher.bat` - it will automatically install requirements on first launch!
