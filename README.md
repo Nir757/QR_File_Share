@@ -22,12 +22,6 @@ A web-based file sharing application that allows you to share files between your
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.7+ installed on your PC (only if running locally)
-- Modern web browser with WebRTC support
-- Camera access on mobile device for QR scanning
-
 ### Option 1: Use Deployed Version (Easiest - No Installation Required)
 
 **Skip all installation steps!** Simply open this URL on your PC:
@@ -37,6 +31,12 @@ A web-based file sharing application that allows you to share files between your
 The app will open directly in your browser. Then proceed to [Step 3: Connect Your Mobile Device](#step-3-connect-your-mobile-device) below.
 
 ### Option 2: Run Locally
+
+#### Prerequisites
+
+- Python 3.7+ installed on your PC
+- Modern web browser with WebRTC support
+- Camera access on mobile device for QR scanning
 
 #### Step 1: Clone or Download
 
