@@ -513,7 +513,12 @@ function initializeWebRTC() {
     setupDataChannel();
     
     // Create and send offer
-    peerConnection.createOffer()
+    // Explicitly disable audio/video to prevent microphone permission requests
+    // We only use data channels for file transfer
+    peerConnection.createOffer({
+        offerToReceiveAudio: false,
+        offerToReceiveVideo: false
+    })
         .then(offer => {
             return peerConnection.setLocalDescription(offer);
         })
@@ -536,7 +541,12 @@ async function handleOffer(offer) {
     }
     
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
+    // Explicitly disable audio/video to prevent microphone permission requests
+    // We only use data channels for file transfer
+    const answer = await peerConnection.createAnswer({
+        offerToReceiveAudio: false,
+        offerToReceiveVideo: false
+    });
     await peerConnection.setLocalDescription(answer);
     
     if (signalingClient) {
