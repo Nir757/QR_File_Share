@@ -26,7 +26,7 @@ A web-based file sharing application that allows you to share files between your
 
 **Skip all installation steps!** Simply open this URL on your PC:
 
-**🌐 [https://flask-app-production-10c0.up.railway.app/](https://flask-app-production-10c0.up.railway.app/)**
+**🌐 [https://qrfileshare.up.railway.app/](https://qrfileshare.up.railway.app/)**
 
 The app will open directly in your browser. Then proceed to [Step 3: Connect Your Mobile Device](#step-3-connect-your-mobile-device) below.
 
