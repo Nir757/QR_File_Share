@@ -23,6 +23,7 @@ sessionId = urlParams.get('session');
 
 window.addEventListener('DOMContentLoaded', () => {
     setupFileHandlers();
+    setupPageVisibilityTracking();
     
     if (sessionId) {
         // Hide scanner, show connecting state
@@ -38,6 +39,37 @@ window.addEventListener('DOMContentLoaded', () => {
         waitForQrScanner();
     }
 });
+
+// Setup Page Visibility API tracking
+function setupPageVisibilityTracking() {
+    // Detect when tab goes to background (user opens file picker)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            isTabHidden = true;
+            console.log('Tab hidden - user might be picking files');
+        } else {
+            isTabHidden = false;
+            // Reset file picker time when tab becomes visible again
+            if (filePickerOpenTime) {
+                const timeHidden = Date.now() - filePickerOpenTime;
+                console.log(`Tab visible again after ${Math.round(timeHidden / 1000)}s`);
+                filePickerOpenTime = null;
+            }
+        }
+    });
+    
+    // Track when file input is clicked (file picker opens)
+    // This will be set up in setupFileInputHandlers, but we can also add it here as a fallback
+    setTimeout(() => {
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) {
+            fileInput.addEventListener('click', () => {
+                filePickerOpenTime = Date.now();
+                console.log('File picker opened - tracking time');
+            });
+        }
+    }, 1000);
+}
 
 function waitForQrScanner() {
     if (typeof QrScanner !== 'undefined') {
@@ -1146,6 +1178,8 @@ function setupFileInputHandlers() {
     // Click on upload area to trigger file picker
     uploadArea.addEventListener('click', (e) => {
         if (e.target !== browseBtn && e.target !== fileInput) {
+            filePickerOpenTime = Date.now();
+            console.log('File picker opened via upload area');
             fileInput.click();
         }
     });
@@ -1155,9 +1189,17 @@ function setupFileInputHandlers() {
         browseBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
+            filePickerOpenTime = Date.now();
+            console.log('File picker opened via browse button');
             fileInput.click();
         });
     }
+    
+    // Track file input clicks directly
+    fileInput.addEventListener('click', () => {
+        filePickerOpenTime = Date.now();
+        console.log('File picker opened - tracking time');
+    });
     
     // Handle file selection - queue files for sending
     let isProcessingChange = false;
@@ -1737,6 +1779,13 @@ let reconnectCountdown = null;
 let disconnectTimeout = null;
 let isDisconnected = false;
 
+// Page Visibility API - Track when tab is hidden (user picking files)
+let isTabHidden = false;
+let filePickerOpenTime = null;
+const MAX_FILE_PICKER_TIME = 180000; // 3 minutes max for file picking
+const DISCONNECT_DELAY_VISIBLE = 3000; // 3 seconds when tab is visible
+const DISCONNECT_DELAY_HIDDEN = 10000; // 10 seconds when tab is hidden (but will check max time)
+
 function handleDisconnection(message) {
     // If already showing disconnection, don't show again
     if (isDisconnected) {
@@ -1748,8 +1797,41 @@ function handleDisconnection(message) {
         clearTimeout(disconnectTimeout);
     }
     
-    // Wait 3 seconds before showing disconnection (in case it's temporary)
+    // Check if tab is hidden (user might be picking files)
+    const timeSincePickerOpened = filePickerOpenTime ? (Date.now() - filePickerOpenTime) : 0;
+    const isLikelyPickingFiles = isTabHidden && filePickerOpenTime && timeSincePickerOpened < MAX_FILE_PICKER_TIME;
+    
+    // Determine delay based on visibility and file picker status
+    let delay;
+    if (isLikelyPickingFiles) {
+        // User is likely picking files - wait longer but not indefinitely
+        // Wait until max time is reached, or use a reasonable delay
+        const remainingTime = MAX_FILE_PICKER_TIME - timeSincePickerOpened;
+        delay = Math.min(DISCONNECT_DELAY_HIDDEN, remainingTime);
+        console.log(`Tab hidden - delaying disconnection by ${Math.round(delay / 1000)}s (user might be picking files)`);
+    } else if (isTabHidden) {
+        // Tab is hidden but file picker wasn't opened recently, or max time exceeded
+        delay = DISCONNECT_DELAY_HIDDEN;
+        console.log(`Tab hidden - delaying disconnection by ${Math.round(delay / 1000)}s`);
+    } else {
+        // Tab is visible - normal delay
+        delay = DISCONNECT_DELAY_VISIBLE;
+    }
+    
     disconnectTimeout = setTimeout(() => {
+        // Double-check if user is still picking files before disconnecting
+        const currentTimeSincePicker = filePickerOpenTime ? (Date.now() - filePickerOpenTime) : 0;
+        const stillPickingFiles = isTabHidden && filePickerOpenTime && currentTimeSincePicker < MAX_FILE_PICKER_TIME;
+        
+        if (stillPickingFiles) {
+            // User is still picking files - cancel disconnection and wait more
+            console.log('Cancelling disconnection - user still picking files');
+            disconnectTimeout = null;
+            // Schedule another check
+            handleDisconnection(message);
+            return;
+        }
+        
         console.log('Disconnection confirmed after delay:', message);
         isDisconnected = true;
         
@@ -1776,7 +1858,7 @@ function handleDisconnection(message) {
         
         // Setup button handlers
         setupDisconnectionHandlers();
-    }, 3000); // 3 second delay
+    }, delay);
 }
 
 function resetScannerView() {

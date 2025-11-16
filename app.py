@@ -26,12 +26,13 @@ except ImportError:
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
 # Increase ping timeout to prevent false disconnections during file picking
+# Extended timeout to allow users time to pick files from external apps (Drive, Gallery, etc.)
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*", 
     async_mode='threading',
-    ping_timeout=60,  # Increase timeout to 60 seconds (default is 5)
-    ping_interval=25  # Send ping every 25 seconds to keep connection alive
+    ping_timeout=120,  # Increase timeout to 120 seconds (2 minutes) to allow file picking
+    ping_interval=30   # Send ping every 30 seconds to keep connection alive
 )
 
 # Get signaling server URL from environment variable (for cross-network P2P support)
