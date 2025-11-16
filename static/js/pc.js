@@ -357,18 +357,26 @@ function initializeWebRTC() {
             // ICE gathering complete
             console.log('✅ ICE gathering complete. Total candidates:', candidateCount);
             
-            // Warn if no relay candidates (TURN servers not working)
+            // Only warn if no relay candidates AND no other candidate types available
+            // If we have host or srflx candidates, connection will likely work without TURN
             if (candidateCount.relay === 0) {
-                console.warn('⚠️  WARNING: No relay candidates found! TURN servers may not be working.');
-                console.warn('   This means:');
-                console.warn('   1. TURN credentials might be invalid/expired');
-                console.warn('   2. TURN servers might be blocked by firewall');
-                console.warn('   3. Network might be blocking TURN traffic');
-                console.warn('   Check TURN server credentials at: https://www.metered.ca');
-                if (turnUsername) {
-                    console.warn('   Current TURN username:', turnUsername);
+                const hasOtherCandidates = (candidateCount.host > 0 || candidateCount.srflx > 0);
+                if (!hasOtherCandidates) {
+                    // No candidates at all - this is a real problem
+                    console.warn('⚠️  WARNING: No relay candidates found! TURN servers may not be working.');
+                    console.warn('   This means:');
+                    console.warn('   1. TURN credentials might be invalid/expired');
+                    console.warn('   2. TURN servers might be blocked by firewall');
+                    console.warn('   3. Network might be blocking TURN traffic');
+                    console.warn('   Check TURN server credentials at: https://www.metered.ca');
+                    if (turnUsername) {
+                        console.warn('   Current TURN username:', turnUsername);
+                    } else {
+                        console.warn('   TURN username not configured in .env file');
+                    }
                 } else {
-                    console.warn('   TURN username not configured in .env file');
+                    // Connection will likely work without TURN, just log as info
+                    console.log('ℹ️  No TURN relay candidates, but have host/srflx candidates. Connection should work without TURN.');
                 }
             } else {
                 console.log(`✅ TURN servers working! Got ${candidateCount.relay} relay candidate(s)`);
@@ -376,20 +384,12 @@ function initializeWebRTC() {
         }
     };
     
-    // Monitor TURN server errors
+    // Monitor ICE gathering state
     peerConnection.onicegatheringstatechange = () => {
         const state = peerConnection.iceGatheringState;
         console.log('ICE gathering state:', state);
-        if (state === 'complete') {
-            if (candidateCount.relay === 0) {
-                console.error('❌ TURN SERVER ISSUE: No relay candidates after gathering complete');
-                console.error('   Possible causes:');
-                console.error('   - TURN credentials expired or invalid');
-                console.error('   - Firewall blocking TURN server ports (80, 443, 3478)');
-                console.error('   - Network blocking UDP/TCP TURN traffic');
-                console.error('   - TURN server temporarily unavailable');
-            }
-        }
+        // Don't show TURN errors here - wait to see if connection succeeds
+        // Errors will be shown in oniceconnectionstatechange if connection fails
     };
     
     // Monitor connection state
@@ -428,6 +428,23 @@ function initializeWebRTC() {
         
         if (iceState === 'failed') {
             console.error('❌ ICE connection failed - may need TURN server or different network');
+            
+            // Show TURN server errors only if connection failed and no relay candidates were available
+            if (candidateCount.relay === 0) {
+                console.error('❌ TURN SERVER ISSUE: Connection failed and no relay candidates available');
+                console.error('   Possible causes:');
+                console.error('   - TURN credentials expired or invalid');
+                console.error('   - Firewall blocking TURN server ports (80, 443, 3478)');
+                console.error('   - Network blocking UDP/TCP TURN traffic');
+                console.error('   - TURN server temporarily unavailable');
+                console.error('   - Both devices behind strict NAT/firewall requiring TURN');
+                if (turnUsername) {
+                    console.error('   Current TURN username:', turnUsername);
+                } else {
+                    console.error('   TURN username not configured in .env file');
+                }
+            }
+            
             // Stop queue processing
             shouldStopQueue = true;
             if (queueProcessingTimeout) {
@@ -453,6 +470,10 @@ function initializeWebRTC() {
             }
         } else if (iceState === 'connected' || iceState === 'completed') {
             console.log('✅ ICE connection established');
+            // Connection succeeded - if no TURN was used, that's fine
+            if (candidateCount.relay === 0 && (candidateCount.host > 0 || candidateCount.srflx > 0)) {
+                console.log('ℹ️  Connection established without TURN (using direct/host or STUN-assisted connection)');
+            }
         }
     };
     
@@ -773,7 +794,12 @@ function displayReceivedFile(file) {
             <button class="btn-reject" onclick="rejectFile('${file.id}')">✗ Reject</button>
         </div>
     `;
-    container.appendChild(fileItem);
+    // Insert at the top (before first child) so new files appear on top
+    if (container.firstChild) {
+        container.insertBefore(fileItem, container.firstChild);
+    } else {
+        container.appendChild(fileItem);
+    }
 }
 
 function acceptFile(fileId) {
@@ -816,6 +842,7 @@ function updateDownloadAllButton() {
     const downloadAllBtn = document.getElementById('download-all-btn');
     const rejectAllBtn = document.getElementById('reject-all-btn');
     const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+    const processedFiles = receivedFiles.filter(f => f.downloaded);
     
     if (pendingFiles.length > 0) {
         if (downloadAllBtn) {
@@ -835,6 +862,17 @@ function updateDownloadAllButton() {
         }
     }
     
+    // Show/hide "Clear Processed" button based on processed files
+    const clearProcessedBtn = document.getElementById('clear-processed-btn');
+    if (clearProcessedBtn) {
+        if (processedFiles.length > 0) {
+            clearProcessedBtn.style.display = 'inline-block';
+            clearProcessedBtn.textContent = `Clear Processed (${processedFiles.length})`;
+        } else {
+            clearProcessedBtn.style.display = 'none';
+        }
+    }
+    
     // Show "no files" message if all files are processed
     const noFilesMsg = document.getElementById('no-files-message');
     if (receivedFiles.length === 0 && noFilesMsg) {
@@ -843,6 +881,34 @@ function updateDownloadAllButton() {
         noFilesMsg.style.display = 'none';
     }
 }
+
+// Clear processed files (accepted/rejected)
+function clearProcessedFiles() {
+    const processedFiles = receivedFiles.filter(f => f.downloaded);
+    
+    if (processedFiles.length === 0) {
+        return;
+    }
+    
+    // Remove processed files from array
+    receivedFiles = receivedFiles.filter(f => !f.downloaded);
+    
+    // Remove processed files from DOM
+    processedFiles.forEach(file => {
+        const fileItem = document.getElementById(`file-${file.id}`);
+        if (fileItem) {
+            fileItem.remove();
+        }
+    });
+    
+    console.log(`Cleared ${processedFiles.length} processed file(s)`);
+    
+    // Update buttons and messages
+    updateDownloadAllButton();
+}
+
+// Make clearProcessedFiles globally accessible
+window.clearProcessedFiles = clearProcessedFiles;
 
 function rejectAllFiles() {
     const pendingFiles = receivedFiles.filter(f => !f.downloaded);
@@ -1073,7 +1139,29 @@ function updateCancelButton() {
             cancelBtn.style.display = 'none';
         }
     }
+    
+    // Update view progress button visibility
+    const viewProgressBtn = document.getElementById('view-progress-btn');
+    if (viewProgressBtn) {
+        // Show button if there are files in queue or being sent
+        if (fileQueue.length > 0 || isSendingFile || Object.keys(sendingFiles).length > 0) {
+            viewProgressBtn.style.display = 'inline-block';
+        } else {
+            viewProgressBtn.style.display = 'none';
+        }
+    }
 }
+
+// Scroll to sending progress section
+function scrollToProgress() {
+    const progressSection = document.getElementById('sending-progress-section');
+    if (progressSection) {
+        progressSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Make scrollToProgress globally accessible
+window.scrollToProgress = scrollToProgress;
 
 async function processFileQueue() {
     // Check if queue should be stopped

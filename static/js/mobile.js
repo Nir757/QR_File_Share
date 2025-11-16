@@ -923,7 +923,12 @@ function displayReceivedFile(file) {
             <button class="btn-reject" onclick="rejectFile('${file.id}')">✗ Reject</button>
         </div>
     `;
-    container.appendChild(fileItem);
+    // Insert at the top (before first child) so new files appear on top
+    if (container.firstChild) {
+        container.insertBefore(fileItem, container.firstChild);
+    } else {
+        container.appendChild(fileItem);
+    }
 }
 
 function acceptFile(fileId) {
@@ -966,6 +971,7 @@ function updateDownloadAllButton() {
     const downloadAllBtn = document.getElementById('download-all-btn');
     const rejectAllBtn = document.getElementById('reject-all-btn');
     const pendingFiles = receivedFiles.filter(f => !f.downloaded);
+    const processedFiles = receivedFiles.filter(f => f.downloaded);
     
     if (pendingFiles.length > 0) {
         if (downloadAllBtn) {
@@ -985,6 +991,17 @@ function updateDownloadAllButton() {
         }
     }
     
+    // Show/hide "Clear Processed" button based on processed files
+    const clearProcessedBtn = document.getElementById('clear-processed-btn');
+    if (clearProcessedBtn) {
+        if (processedFiles.length > 0) {
+            clearProcessedBtn.style.display = 'inline-block';
+            clearProcessedBtn.textContent = `Clear Processed (${processedFiles.length})`;
+        } else {
+            clearProcessedBtn.style.display = 'none';
+        }
+    }
+    
     // Show "no files" message if all files are processed
     const noFilesMsg = document.getElementById('no-files-message');
     if (receivedFiles.length === 0 && noFilesMsg) {
@@ -993,6 +1010,34 @@ function updateDownloadAllButton() {
         noFilesMsg.style.display = 'none';
     }
 }
+
+// Clear processed files (accepted/rejected)
+function clearProcessedFiles() {
+    const processedFiles = receivedFiles.filter(f => f.downloaded);
+    
+    if (processedFiles.length === 0) {
+        return;
+    }
+    
+    // Remove processed files from array
+    receivedFiles = receivedFiles.filter(f => !f.downloaded);
+    
+    // Remove processed files from DOM
+    processedFiles.forEach(file => {
+        const fileItem = document.getElementById(`file-${file.id}`);
+        if (fileItem) {
+            fileItem.remove();
+        }
+    });
+    
+    console.log(`Cleared ${processedFiles.length} processed file(s)`);
+    
+    // Update buttons and messages
+    updateDownloadAllButton();
+}
+
+// Make clearProcessedFiles globally accessible
+window.clearProcessedFiles = clearProcessedFiles;
 
 function rejectAllFiles() {
     const pendingFiles = receivedFiles.filter(f => !f.downloaded);
@@ -1199,7 +1244,29 @@ function updateCancelButton() {
             cancelBtn.style.display = 'none';
         }
     }
+    
+    // Update view progress button visibility
+    const viewProgressBtn = document.getElementById('view-progress-btn');
+    if (viewProgressBtn) {
+        // Show button if there are files in queue or being sent
+        if (fileQueue.length > 0 || isSendingFile || Object.keys(sendingFiles).length > 0) {
+            viewProgressBtn.style.display = 'inline-block';
+        } else {
+            viewProgressBtn.style.display = 'none';
+        }
+    }
 }
+
+// Scroll to sending progress section
+function scrollToProgress() {
+    const progressSection = document.getElementById('sending-progress-section');
+    if (progressSection) {
+        progressSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Make scrollToProgress globally accessible
+window.scrollToProgress = scrollToProgress;
 
 async function processFileQueue() {
     // Check if queue should be stopped

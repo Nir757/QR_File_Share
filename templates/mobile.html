@@ -80,8 +80,8 @@
                     
                     <div class="file-section">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                            <h3 style="margin: 0;">Send Files</h3>
-                            <button id="cancel-queue-btn" class="btn-reject-all" style="display: none;">Cancel Queue</button>
+                            <h3 style="margin: 0;">Choose Files</h3>
+                            <button id="view-progress-btn" class="btn-secondary" style="display: none;" onclick="scrollToProgress()">📊 View Progress</button>
                         </div>
                         <div class="file-upload-area" id="file-upload-area">
                             <input type="file" id="file-input" multiple accept="*/*" style="display: none;">
@@ -89,13 +89,13 @@
                             <p class="upload-text">Tap to select files</p>
                             <button id="browse-btn" class="btn-secondary">Choose Files</button>
                         </div>
-                        <div id="file-list" class="file-list"></div>
                     </div>
                     
                     <div class="file-section">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                             <h3 style="margin: 0;">Received Files</h3>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button id="clear-processed-btn" class="btn-secondary" style="display: none;" onclick="clearProcessedFiles()">Clear Processed</button>
                                 <button id="reject-all-btn" class="btn-reject-all" style="display: none;">Reject All</button>
                                 <button id="download-all-btn" class="btn-secondary" style="display: none;">Download All</button>
                             </div>
@@ -104,6 +104,14 @@
                         <div id="no-files-message" class="no-files-message">
                             No files received yet
                         </div>
+                    </div>
+                    
+                    <div class="file-section" id="sending-progress-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="margin: 0;">Sending Progress</h3>
+                            <button id="cancel-queue-btn" class="btn-reject-all" style="display: none;">Cancel Queue</button>
+                        </div>
+                        <div id="file-list" class="file-list"></div>
                     </div>
                 </div>
             </div>
