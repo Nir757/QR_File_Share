@@ -12,4 +12,5 @@ ENV/
 .DS_Store
 *.log
 .env
+stop-flask.bat
 
