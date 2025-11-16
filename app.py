@@ -24,7 +24,9 @@ except ImportError:
     import tty
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
+# SECRET_KEY should be set via environment variable in production
+# Generate a secure key with: python -c "import secrets; print(secrets.token_hex(32))"
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
 # Increase ping timeout to prevent false disconnections during file picking
 # Extended timeout to allow users time to pick files from external apps (Drive, Gallery, etc.)
 socketio = SocketIO(
