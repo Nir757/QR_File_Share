@@ -7,11 +7,13 @@ A web-based file sharing application that allows you to share files between your
 - 📱 **No Mobile App**: Works entirely in your phone's web browser - no app store download needed
 - 🔗 **Cross-Network**: Share files even when devices are on different networks (when configured)
 - 🏠 **LAN Mode**: Fast local network sharing when devices are on the same WiFi
-- 🎨 **Modern UI**: Beautiful, responsive interface
-- ⚡ **Fast**: Uses WebRTC for peer-to-peer file transfer
+- 🎨 **Modern UI**: Beautiful, responsive interface with organized file sections
+- ⚡ **Fast**: Uses WebRTC for peer-to-peer file transfer (data channels only - no mic/camera needed)
 - ✅ **File Approval**: Choose which files to download or reject
+- 🧹 **Smart File Management**: Clear processed files, view sending progress, new files stack on top
 - 🔄 **Smart Reconnection**: Automatic reconnection with delay to prevent race conditions
 - 📷 **Reliable QR Scanning**: Improved QR code detection with auto-restart on errors
+- ⏱️ **File Picking Protection**: Won't disconnect when picking files from external apps (Drive, Gallery, etc.)
 
 ## How It Works
 
@@ -115,15 +117,35 @@ The app will:
 - **Connection timeout**: Check your internet connection
 - **File picker keeps opening**: This has been fixed in recent updates. If it still happens, refresh the page
 - **Disconnection issues**: Use the reconnection UI that appears when a peer disconnects - wait for the countdown before reconnecting
+- **Disconnected while picking files**: The app now waits up to 3 minutes when you're picking files from external apps. If you see a disconnection, wait a moment - it may reconnect automatically
+- **Microphone permission prompt**: This has been fixed - you should only see camera permission when scanning QR codes
 
 ### Port Issues
 
 - **Port 5000 already in use**: Change the port in `app.py` or stop the other service
 - **Firewall blocking**: Allow Python through your firewall
 
-## Recent Updates (v1.2.0)
+## Recent Updates
 
-### ✅ Improved Cross-Network Connectivity
+### ✅ v1.3.0 - UI Improvements & File Picking Fixes
+
+**New Features:**
+- ✅ **Improved File Organization**: Choose Files section at top, Received Files in middle, Sending Progress at bottom
+- ✅ **New Files on Top**: Recently received files appear above accepted/rejected ones
+- ✅ **Clear Processed Button**: Remove accepted/rejected files to keep list clean
+- ✅ **View Progress Button**: Quick jump to sending progress section
+- ✅ **File Picking Protection**: Page Visibility API prevents false disconnections when picking files from external apps (Drive, Gallery, etc.)
+- ✅ **No Microphone Permission**: Fixed unnecessary microphone permission requests when picking files
+- ✅ **Extended Timeouts**: Increased Socket.IO ping timeout to 2 minutes for better file picking support
+
+**What Changed:**
+- Reordered UI sections for better workflow
+- Added Page Visibility API tracking to detect when users are picking files
+- Extended disconnection timeout to 3 minutes max when file picker is open
+- Disabled audio/video in WebRTC to prevent microphone permission prompts
+- Improved file list management with clear processed functionality
+
+### ✅ v1.2.0 - Improved Cross-Network Connectivity
 
 **Status:** FIXED (as of v1.2.0)
 
@@ -161,10 +183,13 @@ Previous versions had unreliable cross-network connections due to overloaded fre
 ## Technical Details
 
 - Uses **WebRTC** for peer-to-peer file transfer (end-to-end encrypted)
+- **Data channels only**: No audio/video tracks - no microphone or camera needed for file transfer
 - **STUN servers**: Google's public STUN for NAT discovery
 - **TURN servers**: Metered (dedicated credentials for reliable NAT traversal)
 - **Signaling**: Railway-hosted WebSocket server for cross-network mode
+- **Page Visibility API**: Detects when users are picking files to prevent false disconnections
 - Large files transferred in 200KB chunks for reliability
+- Extended Socket.IO ping timeout (120 seconds) for better file picking support
 - See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for full technical details
 
 ## Requirements
