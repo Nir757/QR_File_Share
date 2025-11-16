@@ -252,57 +252,84 @@ function setupSocketListeners() {
 }
 
 function initializeWebRTC() {
-    const configuration = {
-        iceServers: [
-            // Google STUN servers
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            
-            // Your Metered TURN servers (dedicated credentials - 500MB/month free)
+    // Get TURN credentials from environment variables (passed from Flask template)
+    const turnUsername = window.TURN_USERNAME || '';
+    const turnPassword = window.TURN_PASSWORD || '';
+    
+    // Build iceServers array
+    const iceServers = [
+        // Google STUN servers
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+    ];
+    
+    // Add dedicated TURN servers if credentials are provided
+    if (turnUsername && turnPassword) {
+        iceServers.push(
             { 
                 urls: 'turn:a.relay.metered.ca:443',
-                username: '84935d20f8c00f803ff0c22b',
-                credential: 'ouvgtpLR6gp1Jf5m'
+                username: turnUsername,
+                credential: turnPassword
             },
             { 
                 urls: 'turn:a.relay.metered.ca:443?transport=tcp',
-                username: '84935d20f8c00f803ff0c22b',
-                credential: 'ouvgtpLR6gp1Jf5m'
+                username: turnUsername,
+                credential: turnPassword
             },
             { 
                 urls: 'turn:a.relay.metered.ca:80',
-                username: '84935d20f8c00f803ff0c22b',
-                credential: 'ouvgtpLR6gp1Jf5m'
+                username: turnUsername,
+                credential: turnPassword
             },
             { 
                 urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-                username: '84935d20f8c00f803ff0c22b',
-                credential: 'ouvgtpLR6gp1Jf5m'
-            },
-            
-            // Public Metered servers as backup
-            { 
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
+                username: turnUsername,
+                credential: turnPassword
             }
-        ],
+        );
+    }
+    
+    // Public Metered servers as backup (always available)
+    iceServers.push(
+        { 
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        { 
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
+    );
+    
+    const configuration = {
+        iceServers: iceServers,
         iceTransportPolicy: 'all', // Use both relay and non-relay candidates
         iceCandidatePoolSize: 10 // Pre-gather more candidates for faster connection
     };
+    
+    // Log TURN server configuration for debugging
+    console.log('🔧 WebRTC Configuration:');
+    console.log('   TURN Servers configured:', configuration.iceServers.filter(s => s.urls.includes('turn:')).length);
+    if (turnUsername) {
+        console.log('   TURN Username (dedicated):', turnUsername);
+    } else {
+        console.log('   TURN Username (dedicated): Not configured (using public servers only)');
+    }
+    console.log('   TURN Servers:');
+    configuration.iceServers.filter(s => s.urls.includes('turn:')).forEach((server, idx) => {
+        console.log(`     ${idx + 1}. ${server.urls} (${server.username || 'no auth'})`);
+    });
     
     peerConnection = new RTCPeerConnection(configuration);
     
     // Log ICE candidates for debugging
     let candidateCount = { host: 0, srflx: 0, relay: 0 };
+    let turnServerErrors = [];
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
             // Log candidate type
@@ -310,6 +337,12 @@ function initializeWebRTC() {
             const type = candidate.type || 'unknown';
             candidateCount[type] = (candidateCount[type] || 0) + 1;
             console.log(`ICE candidate (${type}):`, candidate.candidate);
+            
+            // Check if it's a relay candidate (from TURN server)
+            if (type === 'relay') {
+                console.log('✅ TURN server working! Got relay candidate:', candidate.candidate);
+            }
+            
             console.log('Candidate counts:', candidateCount);
             
             if (signalingClient) {
@@ -323,6 +356,39 @@ function initializeWebRTC() {
         } else {
             // ICE gathering complete
             console.log('✅ ICE gathering complete. Total candidates:', candidateCount);
+            
+            // Warn if no relay candidates (TURN servers not working)
+            if (candidateCount.relay === 0) {
+                console.warn('⚠️  WARNING: No relay candidates found! TURN servers may not be working.');
+                console.warn('   This means:');
+                console.warn('   1. TURN credentials might be invalid/expired');
+                console.warn('   2. TURN servers might be blocked by firewall');
+                console.warn('   3. Network might be blocking TURN traffic');
+                console.warn('   Check TURN server credentials at: https://www.metered.ca');
+                if (turnUsername) {
+                    console.warn('   Current TURN username:', turnUsername);
+                } else {
+                    console.warn('   TURN username not configured in .env file');
+                }
+            } else {
+                console.log(`✅ TURN servers working! Got ${candidateCount.relay} relay candidate(s)`);
+            }
+        }
+    };
+    
+    // Monitor TURN server errors
+    peerConnection.onicegatheringstatechange = () => {
+        const state = peerConnection.iceGatheringState;
+        console.log('ICE gathering state:', state);
+        if (state === 'complete') {
+            if (candidateCount.relay === 0) {
+                console.error('❌ TURN SERVER ISSUE: No relay candidates after gathering complete');
+                console.error('   Possible causes:');
+                console.error('   - TURN credentials expired or invalid');
+                console.error('   - Firewall blocking TURN server ports (80, 443, 3478)');
+                console.error('   - Network blocking UDP/TCP TURN traffic');
+                console.error('   - TURN server temporarily unavailable');
+            }
         }
     };
     

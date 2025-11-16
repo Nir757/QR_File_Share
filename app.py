@@ -12,6 +12,10 @@ import time
 import sys
 import subprocess
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 try:
     import msvcrt  # Windows
 except ImportError:
@@ -62,6 +66,10 @@ if _public_url_raw and not _public_url_raw.startswith('http://') and not _public
         PUBLIC_APP_URL = _public_url_raw
 else:
     PUBLIC_APP_URL = _public_url_raw
+
+# TURN server credentials from environment variables
+TURN_USERNAME = os.environ.get('TURN_USERNAME', '')
+TURN_PASSWORD = os.environ.get('TURN_PASSWORD', '')
 
 # Store active sessions
 sessions = {}
@@ -131,12 +139,17 @@ def index():
     """PC side - shows QR code"""
     return render_template('pc.html', 
         signaling_server_url=SIGNALING_SERVER_URL,
-        public_app_url=PUBLIC_APP_URL)
+        public_app_url=PUBLIC_APP_URL,
+        turn_username=TURN_USERNAME,
+        turn_password=TURN_PASSWORD)
 
 @app.route('/mobile')
 def mobile():
     """Mobile side - QR scanner"""
-    return render_template('mobile.html', signaling_server_url=SIGNALING_SERVER_URL)
+    return render_template('mobile.html', 
+        signaling_server_url=SIGNALING_SERVER_URL,
+        turn_username=TURN_USERNAME,
+        turn_password=TURN_PASSWORD)
 
 @app.route('/debug')
 def debug():

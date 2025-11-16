@@ -14,6 +14,9 @@
         // If set, will use Node.js WebSocket signaling server (cross-network P2P)
         // If empty, will use Socket.IO (existing LAN mode)
         window.SIGNALING_SERVER_URL = '{{ signaling_server_url or "" }}';
+        // TURN server credentials from environment variables
+        window.TURN_USERNAME = '{{ turn_username or "" }}';
+        window.TURN_PASSWORD = '{{ turn_password or "" }}';
     </script>
 </head>
 <body>
