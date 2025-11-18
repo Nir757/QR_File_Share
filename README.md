@@ -10,10 +10,7 @@ A web-based file sharing application that allows you to share files between your
 - 🎨 **Modern UI**: Beautiful, responsive interface with organized file sections
 - ⚡ **Fast**: Uses WebRTC for peer-to-peer file transfer (data channels only - no mic/camera needed)
 - ✅ **File Approval**: Choose which files to download or reject
-- 🧹 **Smart File Management**: Clear processed files, view sending progress, new files stack on top
 - 🔄 **Smart Reconnection**: Automatic reconnection with delay
-- 📷 **Reliable QR Scanning**: Improved QR code detection with auto-restart on errors
-- ⏱️ **File Picking Protection**: Won't disconnect when picking files from external apps (Drive, Gallery, etc.)
 
 ## How It Works
 
