@@ -38,16 +38,13 @@ socketio = SocketIO(
 )
 
 # Get signaling server URL from environment variable (for cross-network P2P support)
-# Set this to your Railway signaling server URL, e.g., 'wss://your-app.up.railway.app'
+# Set this to your cloud signaling server URL, e.g., 'wss://your-signaling-server.koyeb.app'
 # Leave empty to use Socket.IO (existing LAN mode)
 # DEFAULT: Empty string for LAN mode (works on same network)
-# AUTO-DETECT: If running on Railway (PORT env var set), use Railway WebSocket signaling server
 _signaling_url_raw = os.environ.get('SIGNALING_SERVER_URL', '')
-# Auto-detect Railway deployment and use cross-network mode
-if not _signaling_url_raw and os.environ.get('PORT'):
-    # Running on Railway - use Railway WebSocket signaling server for cross-network P2P
-    _signaling_url_raw = 'wss://qrfileshare-production.up.railway.app'
-    print("🌐 Auto-detected Railway deployment - using cross-network mode")
+# Note: SIGNALING_SERVER_URL must be set as environment variable for cross-network mode
+if _signaling_url_raw:
+    print("🌐 Using cloud signaling server - cross-network mode enabled")
 # Clean up if someone accidentally included the variable name in the value
 if 'SIGNALING_SERVER_URL=' in _signaling_url_raw:
     SIGNALING_SERVER_URL = _signaling_url_raw.split('SIGNALING_SERVER_URL=')[-1].strip()
@@ -56,13 +53,13 @@ else:
     SIGNALING_SERVER_URL = _signaling_url_raw
 
 # Public URL for Flask app (for cross-network access)
-# Set this if you deploy Flask app to Railway/Heroku, or use ngrok
-# Example: 'https://your-flask-app.up.railway.app' or 'https://abc123.ngrok.io'
+# Set this if you deploy Flask app to cloud (Koyeb, Railway, Heroku, etc.)
+# Example: 'https://your-flask-app.koyeb.app' or 'https://abc123.ngrok.io'
 # Leave empty to use local IP (LAN only)
 _public_url_raw = os.environ.get('PUBLIC_APP_URL', '')
-# Ensure it has https:// prefix if it's a Railway URL
+# Ensure it has https:// prefix if it's a cloud URL
 if _public_url_raw and not _public_url_raw.startswith('http://') and not _public_url_raw.startswith('https://'):
-    if '.railway.app' in _public_url_raw or '.ngrok.io' in _public_url_raw:
+    if '.koyeb.app' in _public_url_raw or '.railway.app' in _public_url_raw or '.ngrok.io' in _public_url_raw:
         PUBLIC_APP_URL = 'https://' + _public_url_raw
         print(f"⚠️  Added https:// prefix to PUBLIC_APP_URL: {PUBLIC_APP_URL}")
     else:
@@ -175,10 +172,10 @@ def generate_session():
         # Use explicitly set public URL for cross-network access
         host_url = PUBLIC_APP_URL.rstrip('/') + '/'
         print(f"Using PUBLIC_APP_URL for QR code: {host_url}")
-    elif request.host_url.startswith('https://') and '.railway.app' in request.host_url:
-        # Running on Railway - use Railway URL
+    elif request.host_url.startswith('https://') and ('.koyeb.app' in request.host_url or '.railway.app' in request.host_url):
+        # Running on Cloud platform - use cloud URL
         host_url = request.host_url
-        print(f"Using Railway URL from request: {host_url}")
+        print(f"Using cloud URL from request: {host_url}")
     elif '127.0.0.1' in request.host_url or 'localhost' in request.host_url:
         # Running locally - use local IP for LAN access
         local_ip = get_local_ip()
@@ -355,13 +352,13 @@ def install_requirements():
         return False
 
 if __name__ == '__main__':
-    # If running on Railway/Cloud, PORT will be set - just run normally
+    # If running on Cloud (Koyeb, Railway, etc.), PORT will be set - just run normally
     if os.environ.get('PORT'):
         port = int(os.environ.get('PORT'))
         print("\n" + "="*50)
         print("QR File Share Server Starting...")
         print("="*50)
-        print(f"Running on Railway/Cloud - Port: {port}")
+        print(f"Running on Cloud Platform - Port: {port}")
         print("="*50 + "\n")
         socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
     else:
@@ -370,23 +367,23 @@ if __name__ == '__main__':
         print("QR File Share")
         print("=" * 50)
         
-        # Try to import config for Railway URL
+        # Try to import config for Cloud URL
         try:
-            from config import RAILWAY_APP_URL
+            from config import CLOUD_APP_URL
         except ImportError:
-            RAILWAY_APP_URL = ''
+            CLOUD_APP_URL = ''
         
         # Ask user which mode they want
         print("\n📋 Select Mode:")
-        print("  1. 🌐 Cross-Network Mode (Railway) - Works from anywhere")
+        print("  1. 🌐 Cross-Network Mode (Cloud) - Works from anywhere")
         print("  2. 🏠 LAN Mode (Local) - Same network only")
         
-        # Check if Railway URL is configured
-        if not RAILWAY_APP_URL:
-            print("\n⚠️  Warning: Railway URL not configured in config.py")
+        # Check if Cloud URL is configured
+        if not CLOUD_APP_URL:
+            print("\n⚠️  Warning: Cloud URL not configured in config.py")
             print("   Cross-Network Mode will not be available.")
-            print("   Set RAILWAY_APP_URL in config.py to enable it.\n")
-            choice = '2'  # Force LAN mode if Railway not configured
+            print("   Set CLOUD_APP_URL in config.py to enable it.\n")
+            choice = '2'  # Force LAN mode if Cloud URL not configured
         else:
             # Auto-select Cross-Network Mode after 5 seconds
             print("\n⏱️  Auto-selecting Cross-Network Mode in 5 seconds...")
@@ -433,14 +430,14 @@ if __name__ == '__main__':
             print("Invalid choice. Defaulting to Cross-Network Mode.")
             choice = '1'
         
-        # Handle Railway mode
-        if choice == '1' and RAILWAY_APP_URL:
+        # Handle Cloud mode
+        if choice == '1' and CLOUD_APP_URL:
             print(f"\n🌐 Cross-Network Mode")
-            print(f"Opening Railway app: {RAILWAY_APP_URL}")
+            print(f"Opening cloud app: {CLOUD_APP_URL}")
             print("\nOpening browser...")
             time.sleep(1)
-            webbrowser.open(RAILWAY_APP_URL)
-            print("\n✅ Browser opened! The app is running on Railway.")
+            webbrowser.open(CLOUD_APP_URL)
+            print("\n✅ Browser opened! The app is running on the cloud.")
             print("You can close this window.\n")
             input("Press Enter to exit...")
             sys.exit(0)
