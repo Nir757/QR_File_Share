@@ -25,7 +25,7 @@ A web-based file sharing application that allows you to share files between your
 
 **Skip all installation steps!** Simply open this URL on your PC:
 
-**🌐 [https://qrfileshare.up.railway.app/](https://qrfileshare.up.railway.app/)**
+**🌐 [https://qrfileshare.koyeb.app/](https://qrfileshare.koyeb.app/)**
 
 The app will open directly in your browser. Then proceed to [Step 3: Connect Your Mobile Device](#step-3-connect-your-mobile-device) below.
 
@@ -60,7 +60,7 @@ python app.py
 The app will:
 - Install dependencies automatically (Windows) or prompt you to install (Mac/Linux)
 - Prompt you to choose a mode:
-  - **🌐 Cross-Network Mode** - Works from anywhere (Railway server already configured, no setup needed!)
+  - **🌐 Cross-Network Mode** - Works from anywhere (cloud server already configured, no setup needed!)
   - **🏠 LAN Mode** - Same network only (works immediately!)
 - Auto-select Cross-Network Mode after 5 seconds (or press Enter to choose manually)
 - Open your browser automatically
@@ -101,9 +101,10 @@ The app will:
 ### Cross-Network Mode
 
 - Works when devices are on different networks
-- Railway signaling server already configured - works out of the box!
+- Cloud signaling server already configured - works out of the box!
 - No setup required for end users
-- (See [For Developers](#for-developers) section if you want to deploy your own instance)
+- Deployed on Koyeb for reliable performance
+- (See [KOYEB_DEPLOYMENT.md](KOYEB_DEPLOYMENT.md) if you want to deploy your own instance)
 
 ## Troubleshooting
 
@@ -183,7 +184,7 @@ Previous versions had unreliable cross-network connections due to overloaded fre
 - **Data channels only**: No audio/video tracks - no microphone or camera needed for file transfer
 - **STUN servers**: Google's public STUN for NAT discovery
 - **TURN servers**: Metered (dedicated credentials for reliable NAT traversal)
-- **Signaling**: Railway-hosted WebSocket server for cross-network mode
+- **Signaling**: Koyeb-hosted WebSocket server for cross-network mode
 - **Page Visibility API**: Detects when users are picking files to prevent false disconnections
 - Large files transferred in 200KB chunks for reliability
 - Extended Socket.IO ping timeout (120 seconds) for better file picking support
@@ -202,8 +203,7 @@ Previous versions had unreliable cross-network connections due to overloaded fre
 - [Troubleshooting Guide](docs/P2P_SETUP.md) - Common issues and solutions
 
 ### For Developers
-- [Deploy Flask App to Railway](docs/FLASK_RAILWAY_DEPLOYMENT.md)
-- [Deploy Signaling Server to Railway](docs/SIGNALING_SERVER_DEPLOYMENT.md)
+- [Deploy to Koyeb](KOYEB_DEPLOYMENT.md) - Complete deployment guide for Koyeb
 - [P2P Setup Guide](docs/P2P_SETUP.md)
 - [Quick Start P2P](docs/QUICK_START_P2P.md)
 

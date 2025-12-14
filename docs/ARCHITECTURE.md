@@ -15,7 +15,7 @@ QR File Share uses a **hybrid architecture** combining centralized signaling wit
        │                                              │     │
        │ ② WebSocket Signaling (Session Matching)    │     │
        ├──────────────────────────────────────────────────►│
-       │                Railway Signaling Server           │
+       │                Cloud Signaling Server (Koyeb)     │
        │◄──────────────────────────────────────────────────┤
        │                                              │     │
        │ ③ WebRTC Negotiation (SDP Exchange)         │     │
@@ -42,7 +42,7 @@ QR File Share uses a **hybrid architecture** combining centralized signaling wit
 ### 1. **Flask Web Application**
 - **Technology**: Python Flask + Flask-SocketIO
 - **Purpose**: Serves web interface and handles session management
-- **Deployment**: Can run locally or on Railway/Heroku
+- **Deployment**: Can run locally or on cloud platforms (Koyeb, Railway, Heroku, etc.)
 - **Key Features**:
   - QR code generation
   - Session ID management
@@ -143,7 +143,7 @@ QR File Share uses a **hybrid architecture** combining centralized signaling wit
 4. **Mobile navigates** → Opens URL with session parameter
 
 ### Phase 2: Signaling
-5. **Both connect** → WebSocket to Railway signaling server
+5. **Both connect** → WebSocket to cloud signaling server (Koyeb)
 6. **Join session** → Both send session ID to server
 7. **Server matches** → Notifies both peers connected
 8. **SDP exchange** → Offers/answers relayed via signaling
@@ -172,7 +172,7 @@ QR File Share uses a **hybrid architecture** combining centralized signaling wit
 
 ### What's Encrypted
 ✅ **WebRTC data channel** → End-to-end encrypted (DTLS-SRTP)  
-✅ **Signaling** → WSS (WebSocket Secure) when using Railway  
+✅ **Signaling** → WSS (WebSocket Secure) when using cloud deployment  
 ✅ **File data** → Never touches server, P2P only
 
 ### What's NOT Encrypted
@@ -200,7 +200,7 @@ PC → Flask Socket.IO → Mobile
 
 ### Cross-Network Mode (Different Networks)
 ```
-PC → Railway Signaling → Mobile
+PC → Cloud Signaling Server → Mobile
      ↓
    Establish WebRTC via STUN/TURN
      ↓
@@ -222,7 +222,7 @@ PC ←═══ P2P Data Channel ═══→ Mobile
 **Setup**: Deploy signaling server + Metered account  
 **Cost**: $0 (free tiers)  
 **Works**: Anywhere with internet  
-**Services**: Railway + Metered  
+**Services**: Koyeb + Metered  
 
 ### Option 3: Fully Self-Hosted
 **Setup**: Deploy everything on VPS  
@@ -239,12 +239,12 @@ PC ←═══ P2P Data Channel ═══→ Mobile
 **Flask App** (`app.py`):
 ```bash
 SIGNALING_SERVER_URL=wss://your-app.up.railway.app
-PORT=5000  # Auto-set by Railway
+PORT=8000  # Auto-set by Koyeb
 ```
 
 **Signaling Server** (`signaling-server/server.js`):
 ```bash
-PORT=3000  # Auto-set by Railway
+PORT=8000  # Auto-set by Koyeb
 ```
 
 ### WebRTC Configuration
@@ -313,7 +313,7 @@ Returns:
 
 ### Issue: Cross-network doesn't work
 **Check**: 
-1. Railway signaling server is running
+1. Cloud signaling server is running (Koyeb)
 2. Metered credentials are correct
 3. Browser console shows relay candidates
 4. Both devices have internet
@@ -344,7 +344,7 @@ Returns:
 | Signaling (Cross-Net) | Node.js + ws | Remote signaling |
 | Backend | Python Flask | Web server |
 | QR Generation | qrcode (Python) | Generate QR codes |
-| Deployment | Railway PaaS | Signaling server host |
+| Deployment | Koyeb PaaS | Application & signaling host |
 | NAT Traversal | Google STUN + Metered TURN | Connection establishment |
 
 ---
@@ -360,7 +360,7 @@ Returns:
 
 ### Why Separate Signaling Server?
 ✅ Works across different networks  
-✅ Scalable (Railway auto-scales)  
+✅ Scalable (Koyeb auto-scales)  
 ✅ Can use different tech (Node.js)  
 ❌ Extra deployment step  
 ❌ Requires external service  
@@ -396,7 +396,7 @@ Returns:
 - [ ] Progressive Web App (PWA) support
 
 ### Cost Optimization
-- Self-host on DigitalOcean ($5/month) instead of Railway
+- Self-host on DigitalOcean ($5/month) or use other cloud platforms
 - Deploy coturn TURN server (eliminate Metered dependency)
 - Total cost: ~$5/month for unlimited usage
 
