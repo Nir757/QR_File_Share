@@ -214,10 +214,7 @@ function initializeSignaling() {
             document.getElementById('qr-container').classList.add('hidden');
             document.getElementById('connected-view').classList.remove('hidden');
             initializeWebRTC();
-            // Setup file upload handlers immediately (they'll be ready when data channel opens)
-            // Reset flag in case of reconnection
-            fileUploadSetup = false;
-            setupFileUpload();
+            // File upload handlers will be set up once when data channel opens
         });
         
         signalingClient.on('webrtc_offer', async (offer) => {
@@ -260,10 +257,7 @@ function setupSocketListeners() {
         document.getElementById('qr-container').classList.add('hidden');
         document.getElementById('connected-view').classList.remove('hidden');
         initializeWebRTC();
-        // Setup file upload handlers immediately (they'll be ready when data channel opens)
-        // Reset flag in case of reconnection
-        fileUploadSetup = false;
-        setupFileUpload();
+        // File upload handlers will be set up once when data channel opens
     });
     
     socket.on('webrtc_offer', async (data) => {
@@ -584,11 +578,14 @@ function setupDataChannel() {
         }
     }, 30000); // 30 second timeout
     
-    // If channel is already open, process queue immediately
+    // If channel is already open, setup handlers once
     if (dataChannel.readyState === 'open') {
         clearTimeout(dataChannelTimeout);
         console.log('Data channel already open');
-        setupFileUpload();
+        // Setup handlers only once (guard will prevent duplicates)
+        if (!fileUploadSetup) {
+            setupFileUpload();
+        }
         if (fileQueue.length > 0) {
             processFileQueue();
         }
@@ -597,8 +594,10 @@ function setupDataChannel() {
     dataChannel.onopen = () => {
         clearTimeout(dataChannelTimeout);
         console.log('✅ Data channel opened successfully');
-        // Setup file upload handlers once data channel is ready
-        setupFileUpload();
+        // Setup file upload handlers once data channel is ready (guard will prevent duplicates)
+        if (!fileUploadSetup) {
+            setupFileUpload();
+        }
         // Start processing queue if there are files waiting
         if (fileQueue.length > 0) {
             console.log(`Processing ${fileQueue.length} queued files`);
@@ -1091,6 +1090,9 @@ function setupFileUpload() {
         isProcessingChange = true;
         const files = e.target.files;
         
+        // Clear file picker tracking since user is done picking
+        filePickerOpenTime = null;
+        
         if (files.length > 0) {
             Array.from(files).forEach(file => {
                 queueFile(file);
@@ -1106,6 +1108,7 @@ function setupFileUpload() {
                 processFileQueue();
             }
         } else {
+            // User cancelled file selection - already cleared above
             isProcessingChange = false;
         }
     });
@@ -1609,31 +1612,31 @@ function handleDisconnection(message) {
         clearTimeout(disconnectTimeout);
     }
     
-    // Check if tab is hidden (user might be picking files)
+    // Check if user is picking files (prioritize filePickerOpenTime over visibility)
     const timeSincePickerOpened = filePickerOpenTime ? (Date.now() - filePickerOpenTime) : 0;
-    const isLikelyPickingFiles = isTabHidden && filePickerOpenTime && timeSincePickerOpened < MAX_FILE_PICKER_TIME;
+    const isPickingFiles = filePickerOpenTime && timeSincePickerOpened < MAX_FILE_PICKER_TIME;
     
-    // Determine delay based on visibility and file picker status
+    // Determine delay based on file picker status
     let delay;
-    if (isLikelyPickingFiles) {
-        // User is likely picking files - wait longer but not indefinitely
-        // Wait until max time is reached, or use a reasonable delay
+    if (isPickingFiles) {
+        // User is picking files - give them plenty of time regardless of tab visibility
+        // (Mobile browsers don't always trigger visibilitychange for file pickers)
         const remainingTime = MAX_FILE_PICKER_TIME - timeSincePickerOpened;
-        delay = Math.min(DISCONNECT_DELAY_HIDDEN, remainingTime);
-        console.log(`Tab hidden - delaying disconnection by ${Math.round(delay / 1000)}s (user might be picking files)`);
+        delay = Math.max(remainingTime, DISCONNECT_DELAY_HIDDEN);
+        console.log(`File picker open - delaying disconnection by ${Math.round(delay / 1000)}s (${Math.round(remainingTime / 1000)}s remaining)`);
     } else if (isTabHidden) {
-        // Tab is hidden but file picker wasn't opened recently, or max time exceeded
+        // Tab is hidden but file picker wasn't opened recently
         delay = DISCONNECT_DELAY_HIDDEN;
         console.log(`Tab hidden - delaying disconnection by ${Math.round(delay / 1000)}s`);
     } else {
-        // Tab is visible - normal delay
+        // Tab is visible and no file picker - normal delay
         delay = DISCONNECT_DELAY_VISIBLE;
     }
     
     disconnectTimeout = setTimeout(() => {
         // Double-check if user is still picking files before disconnecting
         const currentTimeSincePicker = filePickerOpenTime ? (Date.now() - filePickerOpenTime) : 0;
-        const stillPickingFiles = isTabHidden && filePickerOpenTime && currentTimeSincePicker < MAX_FILE_PICKER_TIME;
+        const stillPickingFiles = filePickerOpenTime && currentTimeSincePicker < MAX_FILE_PICKER_TIME;
         
         if (stillPickingFiles) {
             // User is still picking files - cancel disconnection and wait more
