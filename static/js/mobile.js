@@ -1785,8 +1785,8 @@ let isDisconnected = false;
 let isTabHidden = false;
 let filePickerOpenTime = null;
 const MAX_FILE_PICKER_TIME = 180000; // 3 minutes max for file picking
-const DISCONNECT_DELAY_VISIBLE = 3000; // 3 seconds when tab is visible
-const DISCONNECT_DELAY_HIDDEN = 10000; // 10 seconds when tab is hidden (but will check max time)
+const DISCONNECT_DELAY_VISIBLE = 60000; // 1 minute when tab is visible (increased from 3s)
+const DISCONNECT_DELAY_HIDDEN = 60000; // 1 minute when tab is hidden (increased from 10s)
 
 function handleDisconnection(message) {
     // If already showing disconnection, don't show again
@@ -1954,8 +1954,9 @@ function cleanupConnections() {
         queueProcessingTimeout = null;
     }
     
-    // Reset file input handlers setup flag so handlers can be set up again
-    fileInputHandlersSetup = false;
+    // NOTE: Do NOT reset fileInputHandlersSetup - event listeners persist on DOM elements
+    // Resetting this flag would cause DUPLICATE event listeners to be added on reconnect
+    // which is why the file picker was opening multiple times
     
     // Reset disconnect flag
     isDisconnected = false;

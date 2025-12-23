@@ -73,7 +73,7 @@ TURN_PASSWORD = os.environ.get('TURN_PASSWORD', '')
 
 # Store active sessions with timestamp for cleanup
 sessions = {}
-SESSION_TIMEOUT = 3600  # 1 hour - cleanup sessions older than this
+SESSION_TIMEOUT = 120  # 2 minutes - cleanup sessions with no active users
 
 def cleanup_old_sessions():
     """Remove sessions that haven't been active for SESSION_TIMEOUT seconds"""
