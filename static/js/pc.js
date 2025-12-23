@@ -15,13 +15,13 @@ const CHUNK_SIZE = 200 * 1024; // 200KB chunks (safe for WebRTC)
 // Signaling client for cross-network P2P support
 let signalingClient = null;
 
-// Mode: 'railway' (cross-network) or 'local' (LAN)
-let currentMode = 'railway'; // Default to cross-network
+// Mode: 'railway' (cloud/cross-network) or 'local' (LAN)
+let currentMode = 'railway'; // Default to cross-network (name kept for compatibility)
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', async () => {
-    // Check if we're on Railway URL or localhost
-    if (window.location.hostname.includes('railway.app') || window.location.hostname.includes('ngrok.io')) {
+    // Check if we're on cloud deployment URL or localhost
+    if (window.location.hostname.includes('koyeb.app') || window.location.hostname.includes('railway.app') || window.location.hostname.includes('ngrok.io')) {
         currentMode = 'railway';
     } else {
         currentMode = 'local';
