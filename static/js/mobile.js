@@ -645,8 +645,9 @@ function initializeWebRTC() {
         const state = peerConnection.connectionState;
         console.log('Peer connection state:', state);
         
-        if (state === 'failed' || state === 'disconnected') {
-            console.error('❌ Peer connection failed or disconnected');
+        if (state === 'failed') {
+            // Only treat 'failed' as fatal - 'disconnected' can recover
+            console.error('❌ Peer connection failed');
             // Stop queue processing immediately
             shouldStopQueue = true;
             isSendingFile = false;
@@ -663,6 +664,11 @@ function initializeWebRTC() {
             }
             // Show disconnection message
             handleDisconnection('WebRTC connection failed. Please try reconnecting.');
+        } else if (state === 'disconnected') {
+            // 'disconnected' is NOT fatal - WebRTC can recover (e.g., when going to background)
+            console.warn('⚠️  Peer connection disconnected - waiting for recovery...');
+            // Pause queue processing but don't clear it
+            shouldStopQueue = true;
         } else if (state === 'connected') {
             console.log('✅ Peer connection established');
             // Reset stop flag when connection is restored
@@ -1319,8 +1325,8 @@ async function processFileQueue() {
         return;
     }
     
-    // Check if peer connection has failed
-    if (peerConnection && (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected')) {
+    // Check if peer connection has failed (only 'failed' is fatal, 'disconnected' can recover)
+    if (peerConnection && peerConnection.connectionState === 'failed') {
         console.error('❌ Cannot process queue - peer connection failed');
         if (fileQueue.length > 0) {
             fileQueue.forEach(file => {
