@@ -52,8 +52,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     }, 500);
 });
 
+// Flag to prevent multiple visibility tracking setups
+let visibilityTrackingSetup = false;
+
 // Setup Page Visibility API tracking
 function setupPageVisibilityTracking() {
+    // Prevent multiple setups (would cause duplicate event listeners)
+    if (visibilityTrackingSetup) {
+        console.log('Visibility tracking already set up, skipping...');
+        return;
+    }
+    
     // Detect when tab goes to background (user opens file picker)
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
@@ -70,16 +79,10 @@ function setupPageVisibilityTracking() {
         }
     });
     
-    // Track when file input is clicked (file picker opens)
-    setTimeout(() => {
-        const fileInput = document.getElementById('file-input');
-        if (fileInput) {
-            fileInput.addEventListener('click', () => {
-                filePickerOpenTime = Date.now();
-                console.log('File picker opened - tracking time');
-            });
-        }
-    }, 1000);
+    visibilityTrackingSetup = true;
+    
+    // Note: File input click tracking is handled in setupFileUpload()
+    // to avoid duplicate listeners
 }
 
 // Update mode UI (display only, no switching)
@@ -659,9 +662,8 @@ function setupDataChannel() {
         }
     };
     
-    dataChannel.onerror = (error) => {
-        console.error('Data channel error:', error);
-    };
+    // Note: dataChannel.onerror already set above (line ~606)
+    // Removed duplicate handler that was overwriting the first one
     
     peerConnection.ondatachannel = (event) => {
         const channel = event.channel;

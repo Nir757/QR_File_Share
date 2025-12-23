@@ -1215,6 +1215,8 @@ function setupFileInputHandlers() {
             Array.from(files).forEach(file => {
                 queueFile(file);
             });
+            // Clear file picker tracking since user selected files
+            filePickerOpenTime = null;
             // Clear the input after a small delay to prevent immediate re-trigger
             setTimeout(() => {
                 fileInput.value = '';
@@ -1226,6 +1228,8 @@ function setupFileInputHandlers() {
                 processFileQueue();
             }
         } else {
+            // User cancelled file selection - clear file picker tracking
+            filePickerOpenTime = null;
             isProcessingChange = false;
         }
     });
@@ -1795,31 +1799,31 @@ function handleDisconnection(message) {
         clearTimeout(disconnectTimeout);
     }
     
-    // Check if tab is hidden (user might be picking files)
+    // Check if user is picking files (prioritize filePickerOpenTime over visibility)
     const timeSincePickerOpened = filePickerOpenTime ? (Date.now() - filePickerOpenTime) : 0;
-    const isLikelyPickingFiles = isTabHidden && filePickerOpenTime && timeSincePickerOpened < MAX_FILE_PICKER_TIME;
+    const isPickingFiles = filePickerOpenTime && timeSincePickerOpened < MAX_FILE_PICKER_TIME;
     
-    // Determine delay based on visibility and file picker status
+    // Determine delay based on file picker status
     let delay;
-    if (isLikelyPickingFiles) {
-        // User is likely picking files - give them plenty of time
-        // Use the full remaining time (up to MAX_FILE_PICKER_TIME)
+    if (isPickingFiles) {
+        // User is picking files - give them plenty of time regardless of tab visibility
+        // (Mobile browsers don't always trigger visibilitychange for file pickers)
         const remainingTime = MAX_FILE_PICKER_TIME - timeSincePickerOpened;
         delay = Math.max(remainingTime, DISCONNECT_DELAY_HIDDEN);
-        console.log(`Tab hidden - delaying disconnection by ${Math.round(delay / 1000)}s (user is picking files)`);
+        console.log(`File picker open - delaying disconnection by ${Math.round(delay / 1000)}s (${Math.round(remainingTime / 1000)}s remaining)`);
     } else if (isTabHidden) {
-        // Tab is hidden but file picker wasn't opened recently, or max time exceeded
+        // Tab is hidden but file picker wasn't opened recently
         delay = DISCONNECT_DELAY_HIDDEN;
         console.log(`Tab hidden - delaying disconnection by ${Math.round(delay / 1000)}s`);
     } else {
-        // Tab is visible - normal delay
+        // Tab is visible and no file picker - normal delay
         delay = DISCONNECT_DELAY_VISIBLE;
     }
     
     disconnectTimeout = setTimeout(() => {
         // Double-check if user is still picking files before disconnecting
         const currentTimeSincePicker = filePickerOpenTime ? (Date.now() - filePickerOpenTime) : 0;
-        const stillPickingFiles = isTabHidden && filePickerOpenTime && currentTimeSincePicker < MAX_FILE_PICKER_TIME;
+        const stillPickingFiles = filePickerOpenTime && currentTimeSincePicker < MAX_FILE_PICKER_TIME;
         
         if (stillPickingFiles) {
             // User is still picking files - cancel disconnection and wait more

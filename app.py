@@ -71,8 +71,29 @@ else:
 TURN_USERNAME = os.environ.get('TURN_USERNAME', '')
 TURN_PASSWORD = os.environ.get('TURN_PASSWORD', '')
 
-# Store active sessions
+# Store active sessions with timestamp for cleanup
 sessions = {}
+SESSION_TIMEOUT = 3600  # 1 hour - cleanup sessions older than this
+
+def cleanup_old_sessions():
+    """Remove sessions that haven't been active for SESSION_TIMEOUT seconds"""
+    import time
+    current_time = time.time()
+    to_delete = []
+    
+    for session_id, session in sessions.items():
+        # Check if session has been inactive (no connections) for too long
+        if 'created_at' in session:
+            age = current_time - session['created_at']
+            if age > SESSION_TIMEOUT and not session['pc_connected'] and not session['mobile_connected']:
+                to_delete.append(session_id)
+    
+    for session_id in to_delete:
+        del sessions[session_id]
+        print(f'Cleaned up old session: {session_id}')
+    
+    if to_delete:
+        print(f'Cleaned up {len(to_delete)} old sessions')
 
 def get_local_ip():
     """Get the local IP address of this machine - returns list of all non-loopback IPs"""
@@ -224,12 +245,18 @@ def generate_session():
     
     qr_code_data = base64.b64encode(buffer.getvalue()).decode()
     
+    import time
     sessions[session_id] = {
         'pc_connected': False,
         'mobile_connected': False,
         'pc_sid': None,
-        'mobile_sid': None
+        'mobile_sid': None,
+        'created_at': time.time()
     }
+    
+    # Clean up old sessions periodically (every 10th session creation)
+    if len(sessions) % 10 == 0:
+        cleanup_old_sessions()
     
     return jsonify({
         'session_id': session_id,
@@ -245,15 +272,27 @@ def handle_connect():
 def handle_disconnect():
     print(f'Client disconnected: {request.sid}')
     # Clean up session if client disconnects
-    for session_id, session in sessions.items():
+    sessions_to_delete = []
+    for session_id, session in list(sessions.items()):  # Use list() to avoid runtime modification issues
         if session['pc_sid'] == request.sid:
             session['pc_connected'] = False
             session['pc_sid'] = None
             socketio.emit('pc_disconnected', room=session['mobile_sid'])
+            # If both peers are now disconnected, mark for deletion
+            if not session['mobile_connected']:
+                sessions_to_delete.append(session_id)
         elif session['mobile_sid'] == request.sid:
             session['mobile_connected'] = False
             session['mobile_sid'] = None
             socketio.emit('mobile_disconnected', room=session['pc_sid'])
+            # If both peers are now disconnected, mark for deletion
+            if not session['pc_connected']:
+                sessions_to_delete.append(session_id)
+    
+    # Delete sessions where both peers have disconnected
+    for session_id in sessions_to_delete:
+        del sessions[session_id]
+        print(f'Deleted session {session_id} - both peers disconnected')
 
 @socketio.on('pc_join')
 def handle_pc_join(data):
