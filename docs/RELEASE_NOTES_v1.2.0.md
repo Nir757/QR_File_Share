@@ -26,7 +26,7 @@
 ## ✅ Testing Recommendations
 - Test with PC on WiFi and mobile on cellular data
 - Check browser console for 'relay' ICE candidates
-- Verify Railway signaling server connectivity
+- Verify cloud signaling server connectivity
 - Monitor Metered dashboard for usage statistics
 
 ## 🔒 Security Note

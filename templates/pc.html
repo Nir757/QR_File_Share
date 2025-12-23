@@ -13,7 +13,7 @@
         // If set, will use Node.js WebSocket signaling server (cross-network P2P)
         // If empty, will use Socket.IO (existing LAN mode)
         window.SIGNALING_SERVER_URL = '{{ signaling_server_url or "" }}';
-        // Railway app URL for mode switching
+        // Public app URL for cross-network mode
         window.RAILWAY_APP_URL = '{{ public_app_url or "" }}';
         // TURN server credentials from environment variables
         window.TURN_USERNAME = '{{ turn_username or "" }}';
