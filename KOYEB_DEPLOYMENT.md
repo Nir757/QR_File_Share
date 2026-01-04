@@ -91,11 +91,11 @@ Fill in these settings:
 | Variable Name | Value | Notes |
 |--------------|-------|-------|
 | `PORT` | `8000` | Koyeb default port |
-| `SECRET_KEY` | `8d5ac4b5420fe348e710c28a510d4e93ac463f8e455d5de70f2621259d763fcc` | Use your existing key from Railway |
+| `SECRET_KEY` | `your-secret-key-here` | Generate with: `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `PUBLIC_APP_URL` | `https://qrfileshare-YOUR-ORG.koyeb.app` | **WAIT**: You'll get this AFTER deployment |
 | `SIGNALING_SERVER_URL` | `wss://qrfileshare-signaling-YOUR-ORG.koyeb.app` | Use URL from Step 1.3 (change `https` to `wss`) |
-| `TURN_USERNAME` | `84935d20f8c00f803ff0c22b` | Your existing TURN username |
-| `TURN_PASSWORD` | `ouvgtpLR6gp1Jf5m` | Your existing TURN password |
+| `TURN_USERNAME` | `your-metered-username` | Get from https://www.metered.ca dashboard |
+| `TURN_PASSWORD` | `your-metered-password` | Get from https://www.metered.ca dashboard |
 | `FLASK_DEBUG` | `False` | Keep as False for production |
 
 **IMPORTANT NOTES**:
@@ -190,11 +190,11 @@ If you want to run the app locally and use the cloud servers:
 ### Flask App Variables:
 ```
 PORT=8000
-SECRET_KEY=8d5ac4b5420fe348e710c28a510d4e93ac463f8e455d5de70f2621259d763fcc
+SECRET_KEY=your-secret-key-here
 PUBLIC_APP_URL=https://qrfileshare-YOUR-ORG.koyeb.app
 SIGNALING_SERVER_URL=wss://qrfileshare-signaling-YOUR-ORG.koyeb.app
-TURN_USERNAME=84935d20f8c00f803ff0c22b
-TURN_PASSWORD=ouvgtpLR6gp1Jf5m
+TURN_USERNAME=your-metered-username
+TURN_PASSWORD=your-metered-password
 FLASK_DEBUG=False
 ```
 

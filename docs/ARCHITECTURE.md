@@ -113,8 +113,8 @@ QR File Share uses a **hybrid architecture** combining centralized signaling wit
 ```javascript
 {
     urls: 'turn:a.relay.metered.ca:443',
-    username: 'YOUR_USERNAME',  // Personal credentials
-    credential: 'YOUR_PASSWORD'
+    username: 'your-metered-username',  // Get from Metered dashboard
+    credential: 'your-metered-password'  // Get from Metered dashboard
 }
 ```
 
@@ -260,8 +260,8 @@ const configuration = {
         // Your TURN servers (NAT traversal)
         {
             urls: 'turn:a.relay.metered.ca:443',
-            username: 'YOUR_METERED_USERNAME',
-            credential: 'YOUR_METERED_PASSWORD'
+            username: 'your-metered-username',  // Get from Metered dashboard
+            credential: 'your-metered-password'  // Get from Metered dashboard
         }
     ],
     iceTransportPolicy: 'all',  // Try both direct and relay
