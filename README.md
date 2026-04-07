@@ -2,6 +2,8 @@
 
 A web-based file sharing application that allows you to share files between your PC and mobile device by scanning a QR code. **No mobile app download required** - your phone uses the web browser!
 
+Note: since this app is not very active the host might take a few mintues to wake up so try again after 2 mintues if connection fails
+
 ## Features
 
 - 📱 **No Mobile App**: Works entirely in your phone's web browser - no app store download needed
